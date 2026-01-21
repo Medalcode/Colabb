@@ -1,0 +1,81 @@
+/* Estilo general de la ventana */
+window {
+  background-color: #1e1e1e;
+  color: #ffffff;
+}
+
+entry {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: "Monospace";
+}
+
+button {
+  background-color: #3d3d3d;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+button:hover {
+  background-color: #4d4d4d;
+}
+
+/* Bloques de Comando */
+.command-block {
+  margin: 5px 10px;
+}
+
+.block-header {
+  background-color: #252526;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  padding: 8px 12px;
+}
+
+.block-body {
+  background-color: #1e1e1e;
+  border: 1px solid #252526;
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding: 10px;
+}
+
+.prompt-char {
+  color: #00ffaf;
+  font-weight: bold;
+}
+
+.command-text {
+  color: #ffffff;
+  font-weight: bold;
+  font-family: "Monospace";
+  font-size: 14px;
+}
+
+.output-text {
+  color: #cccccc;
+  font-family: "Monospace";
+  background-color: transparent;
+}
+
+.error-text {
+  color: #ff6b6b;
+  font-family: "Monospace";
+  background-color: transparent;
+}
+
+.block-separator {
+  margin-top: 10px;
+  margin-bottom: 5px;
+  min-height: 1px;
+  background-color: #333333;
+}
+
+textview text {
+  background-color: #1e1e1e;
+}
