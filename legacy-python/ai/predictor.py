@@ -62,7 +62,10 @@ class Predictor:
             try:
                 response = requests.post(url, headers=headers, json=data)
                 if response.status_code == 200:
-                    return response.json()['choices'][0]['message']['content'].strip()
+                    content = response.json()['choices'][0]['message']['content'].strip()
+                    # Limpiar markdown formatting del output
+                    content = content.replace("```bash", "").replace("```", "").replace("`", "").strip()
+                    return content
                 else:
                     print(f"DEBUG: Groq API Error {response.status_code}: {response.text}")
             except Exception as e:
@@ -83,7 +86,8 @@ class Predictor:
             try:
                 response = requests.post(url, headers=headers, json=data)
                 if response.status_code == 200:
-                    return response.json()['choices'][0]['message']['content'].strip()
+                    content = response.json()['choices'][0]['message']['content'].strip()
+                    return content.replace("```bash", "").replace("```", "").replace("`", "").strip()
             except:
                 pass
             return None

@@ -12,6 +12,36 @@ from gi.repository import Gtk, Gdk, Vte, GLib
 
 from config.config import ConfigManager
 from ai.predictor import Predictor
+import ctypes
+
+# --- VTE CTYPES WORKAROUND ---
+# Fix for "assertion 'attributes == nullptr' failed" in VTE 2.91+ / Python GI
+# --- VTE CTYPES WORKAROUND ---
+# Fix for "assertion 'attributes == nullptr' failed" in VTE 2.91+ / Python GI
+LIBVTE = None
+try:
+    # Intentar cargar usando find_library primero para ser más compatible
+    import ctypes.util
+    lib_path = ctypes.util.find_library('vte-2.91')
+    if not lib_path:
+        # Fallback a path común si find_library falla
+        lib_path = "/usr/lib/x86_64-linux-gnu/libvte-2.91.so.0"
+    
+    print(f"DEBUG: Attempting to load VTE from: {lib_path}")
+    LIBVTE = ctypes.CDLL(lib_path)
+        
+    print(f"DEBUG: VTE Library loaded via ctypes from {lib_path}")
+
+    # char *vte_terminal_get_text_range (...)
+    LIBVTE.vte_terminal_get_text_range.argtypes = [
+        ctypes.c_void_p, ctypes.c_long, ctypes.c_long, ctypes.c_long, ctypes.c_long, 
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p
+    ]
+    LIBVTE.vte_terminal_get_text_range.restype = ctypes.c_char_p
+except Exception as e:
+    print(f"FATAL WARNING: Could not load libvte via ctypes: {e}") 
+    LIBVTE = None
+# -----------------------------
 
 class ConfigDialog(Gtk.Dialog):
     def __init__(self, parent):
@@ -99,6 +129,7 @@ class ConfigDialog(Gtk.Dialog):
 class MainWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="Colabb Terminal")
+        print("DEBUG: LATEST VERSION LOADED (Keylogger Mode)", flush=True)
         self.set_default_size(950, 650)
         
         # Header Bar con botón de Config
@@ -144,7 +175,7 @@ class MainWindow(Gtk.Window):
         self.icon_img = Gtk.Image.new_from_icon_name("dialog-idea-symbolic", Gtk.IconSize.MENU)
         self.suggestion_box.pack_start(self.icon_img, False, False, 5)
         
-        self.suggestion_label = Gtk.Label(label="IA lista. Escribe un comando...")
+        self.suggestion_label = Gtk.Label(label="Escribe '?' y espera la sugerencia...")
         self.suggestion_label.set_ellipsize(3) # END
         self.suggestion_label.set_xalign(0)
         self.suggestion_box.pack_start(self.suggestion_label, True, True, 0)
@@ -173,15 +204,28 @@ class MainWindow(Gtk.Window):
         
         # Focus
         self.terminal.grab_focus()
+        self.local_buffer = ""
 
     def spawn_shell(self):
         shell = os.environ.get("SHELL", "/bin/bash")
         home = os.environ.get("HOME", "/home")
+        
+        # LOGGING STRATEGY: Wrap shell in 'script' to capture output
+        # This allows us to read the screen/errors for the AI since VTE is broken.
+        self.session_log = os.path.join(home, ".colabb_session.log")
+        # Clear previous log
+        if os.path.exists(self.session_log):
+            try: os.remove(self.session_log)
+            except: pass
+            
+        command = ["/usr/bin/script", "-q", "-f", self.session_log, "-c", shell]
+        
         try:
             self.terminal.spawn_sync(
-                Vte.PtyFlags.DEFAULT, home, [shell], [],
+                Vte.PtyFlags.DEFAULT, home, command, [],
                 GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None,
             )
+            print(f"DEBUG: Shell spawned wrapped in script logging to {self.session_log}")
         except Exception as e:
             print(f"Error spawning shell: {e}")
 
@@ -218,61 +262,77 @@ class MainWindow(Gtk.Window):
         self.predictor = Predictor()
 
     def on_key_press(self, widget, event):
+        # Hotkey para aplicar sugerencia
         if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_space:
             self.apply_suggestion(None)
             return True
+        
+        # Escape para resetear estado manual
+        if event.keyval == Gdk.KEY_Escape:
+             self.local_buffer = ""
+             self.suggestion_label.set_text("IA Reseteada. Escribe '?'...")
+             self.apply_btn.set_sensitive(False)
+             return True
+
+        # Teclas de control que limpian el buffer
+        if event.keyval in [Gdk.KEY_Return, Gdk.KEY_KP_Enter]:
+            self.local_buffer = ""
+            self.current_suggestion = None
+            self.suggestion_label.set_text("Escribe '?' y espera la sugerencia...")
+            self.apply_btn.set_sensitive(False)
+            return False
+            
         return False
 
     def on_key_release(self, widget, event):
-        if event.keyval in [Gdk.KEY_Return, Gdk.KEY_BackSpace, Gdk.KEY_Tab] or \
-           (event.keyval < 255 and chr(event.keyval).isprintable()):
-             self._trigger_prediction()
+        # Gestión manual del buffer de entrada
+        val = event.keyval
+        
+        # Caracteres imprimibles
+        if val < 255 and chr(val).isprintable():
+            char = chr(val)
+            self.local_buffer += char
+        
+        # Backspace
+        elif val == Gdk.KEY_BackSpace:
+            self.local_buffer = self.local_buffer[:-1]
+            
+        # Atajos de limpieza comunes (Ctrl+C, Ctrl+U, Ctrl+L)
+        elif event.state & Gdk.ModifierType.CONTROL_MASK:
+            # c=99, u=117, l=108
+            if val in [99, 117, 108]: 
+                self.local_buffer = ""
+
+        self._trigger_prediction()
 
     def _trigger_prediction(self):
-        # Usamos un contador de generaciones para el debounce
-        # Esto evita tener que usar GLib.source_remove que causa warnings
         self.predict_req_id += 1
         req_id = self.predict_req_id
         GLib.timeout_add(300, self._check_prediction_request, req_id)
 
     def _check_prediction_request(self, req_id):
-        # Si el ID ya no coincide, es una petición vieja
         if req_id != self.predict_req_id:
             return False
-            
-        self._process_current_line()
+        self._process_current_buffer()
         return False
 
-    def _process_current_line(self):
+    def _process_current_buffer(self):
         try:
-            # sys.stdout.flush() force
-            print("DEBUG: _process_current_line called", flush=True)
+            # Usamos el buffer local en lugar de leer VTE
+            raw_line = self.local_buffer
             
-            cursor_col, cursor_row = self.terminal.get_cursor_position()
-            text = self.terminal.get_text_range(cursor_row, 0, cursor_row, -1, None)    
-            
-            if not text:
-                print("DEBUG: VTE get_text_range returned None/Empty", flush=True)
-                return False
-                
-            raw_line = text[0]
-            if raw_line is None:
-                print("DEBUG: raw_line is None", flush=True)
-                return False
-                
-            raw_line = raw_line.rstrip()
-            print(f"DEBUG: Processing Line -> '{raw_line}'", flush=True)
-            
-            # --- Lógica TOTEM '?' ---
             clean_input = ""
             if "?" in raw_line:
+                # Tomamos lo que esté después del ULTIMO '?'
                 clean_input = raw_line.split("?")[-1].strip()
-                print(f"DEBUG: Totem [?] FOUND. Clean query='{clean_input}'", flush=True)
-            else:
-                # Si no hay totem, informamos a la UI que estmos inactivos
-                # Solo actualizamos si es necesario para no parpadear
+            
+            # Si el buffer está muy sucio o vacío, o no tiene '?'
+            if not "?" in raw_line or len(raw_line) > 200:
+                # Auto-limpieza si se hace enorme
+                if len(raw_line) > 200: self.local_buffer = ""
+                
                 current_lbl = self.suggestion_label.get_text()
-                target_lbl = "Escribe '?' para activar la IA"
+                target_lbl = "Escribe '?' y espera la sugerencia..."
                 if current_lbl != target_lbl and not self.is_predicting:
                      GLib.idle_add(self.suggestion_label.set_text, target_lbl)
                      GLib.idle_add(self.apply_btn.set_sensitive, False)
@@ -285,12 +345,36 @@ class MainWindow(Gtk.Window):
                     print(f"DEBUG: Triggering AI -> {msg}")
                     GLib.idle_add(self.suggestion_label.set_text, msg)
                     
+                    # --- READ CONTEXT FROM LOG ---
+                    context = ""
+                    try:
+                        if hasattr(self, 'session_log') and os.path.exists(self.session_log):
+                            with open(self.session_log, 'rb') as f:
+                                # Read tail
+                                try:
+                                    f.seek(-2000, 2)
+                                except: pass
+                                raw_data = f.read().decode('utf-8', errors='ignore')
+                                
+                                # Strip ANSI codes (simple regex)
+                                import re
+                                ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+                                context = ansi_escape.sub('', raw_data)
+                                
+                                # Keep last 20 lines
+                                lines = context.splitlines()
+                                context = "\n".join(lines[-20:])
+                    except Exception as e:
+                        print(f"DEBUG: Failed to read context: {e}")
+
+                    full_prompt = f"Context:\n{context}\n\nQuery: {clean_input}"
+                    
                     self.is_predicting = True
-                    threading.Thread(target=self._run_prediction_thread, args=(clean_input,)).start()
+                    threading.Thread(target=self._run_prediction_thread, args=(full_prompt,)).start()
             
             return False
         except Exception as e:
-            print(f"DEBUG: Error critical in _process_current_line: {e}")
+            print(f"DEBUG: Error in buffer processing: {e}")
             return False
 
     def _run_prediction_thread(self, text):
@@ -306,7 +390,7 @@ class MainWindow(Gtk.Window):
         self.is_predicting = False
         if suggestion:
             self.current_suggestion = suggestion
-            self.suggestion_label.set_text(f"{suggestion}")
+            self.suggestion_label.set_text(f"Sugerencia: {suggestion} (Ctrl+Space)")
             self.apply_btn.set_sensitive(True)
             self.icon_img.set_from_icon_name("emoji-objects-symbolic", Gtk.IconSize.MENU)
         else:
@@ -317,14 +401,17 @@ class MainWindow(Gtk.Window):
 
     def apply_suggestion(self, btn):
         if self.current_suggestion:
-            # Enviar Ctrl+U para borrar input actual y pegar sugerencia
-            # Ctrl+U = \x15
             cmds = [b'\x15', self.current_suggestion.encode('utf-8')]
             for c in cmds:
                 self.terminal.feed_child(c)
             self.terminal.grab_focus()
-            self.suggestion_label.set_text("Aplicado.")
+            
+            # CRITICAL FIX: Limpiar buffer y estado
+            self.local_buffer = ""
+            self.last_input_text = ""
+            self.suggestion_label.set_text("Aplicado. Presiona Enter para ejecutar.")
             self.current_suggestion = None
+            self.apply_btn.set_sensitive(False)
 
 def main_window():
     win = MainWindow()
