@@ -29,8 +29,10 @@ set(SOURCES
     src/domain/ai/groq_provider.cpp
     src/domain/ai/openai_provider.cpp
     src/application/prediction_service.cpp
+    src/application/suggestion_cache.cpp
     src/ui/main_window.cpp
     src/ui/config_dialog.cpp
+    src/ui/search_bar.cpp
 )
 
 add_executable(colabb ${SOURCES})

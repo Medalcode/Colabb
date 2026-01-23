@@ -28,6 +28,12 @@ public:
 
     // Widget access
     GtkWidget* widget() const { return GTK_WIDGET(vte_widget_); }
+    
+    // Search functionality
+    bool search_text(const std::string& pattern, bool case_sensitive, bool regex);
+    bool search_next();
+    bool search_previous();
+    void clear_search();
 
 private:
     ::VteTerminal* vte_widget_;

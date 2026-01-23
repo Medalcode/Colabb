@@ -181,5 +181,55 @@ std::string TerminalWidget::strip_ansi_codes(const std::string& text) {
     return std::regex_replace(text, ansi_regex, "");
 }
 
+bool TerminalWidget::search_text(const std::string& pattern, bool case_sensitive, bool regex) {
+    if (pattern.empty()) {
+        clear_search();
+        return false;
+    }
+    
+    GError* error = nullptr;
+    VteRegex* vte_regex = nullptr;
+    
+    if (regex) {
+        // Create regex for search
+        // Use 0 for default flags, add CASELESS if needed
+        guint32 flags = 0;
+        if (!case_sensitive) {
+            flags = 1; // PCRE2_CASELESS equivalent
+        }
+        
+        vte_regex = vte_regex_new_for_search(pattern.c_str(), pattern.length(), flags, &error);
+        
+        if (error) {
+            g_printerr("Search regex error: %s\n", error->message);
+            g_error_free(error);
+            return false;
+        }
+    }
+    
+    // Set search parameters
+    vte_terminal_search_set_regex(vte_widget_, vte_regex, 0);
+    vte_terminal_search_set_wrap_around(vte_widget_, TRUE);
+    
+    if (vte_regex) {
+        vte_regex_unref(vte_regex);
+    }
+    
+    // Perform first search
+    return vte_terminal_search_find_next(vte_widget_);
+}
+
+bool TerminalWidget::search_next() {
+    return vte_terminal_search_find_next(vte_widget_);
+}
+
+bool TerminalWidget::search_previous() {
+    return vte_terminal_search_find_previous(vte_widget_);
+}
+
+void TerminalWidget::clear_search() {
+    vte_terminal_search_set_regex(vte_widget_, nullptr, 0);
+}
+
 } // namespace infrastructure
 } // namespace colabb

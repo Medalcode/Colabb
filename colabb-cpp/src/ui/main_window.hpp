@@ -4,7 +4,9 @@
 #include "infrastructure/terminal/vte_terminal.hpp"
 #include "infrastructure/config/config_manager.hpp"
 #include "application/prediction_service.hpp"
+#include "application/suggestion_cache.hpp"
 #include "domain/models/suggestion.hpp"
+#include "ui/search_bar.hpp"
 #include <gtk/gtk.h>
 #include <memory>
 #include <string>
@@ -25,7 +27,10 @@ private:
     GtkWidget* window_;
     GtkWidget* header_bar_;
     GtkWidget* vbox_;
-    GtkWidget* suggestion_bar_;
+    GtkWidget* overlay_;
+    GtkWidget* scrolled_window_;
+    GtkWidget* suggestion_revealer_;
+    GtkWidget* suggestion_box_;
     GtkLabel* suggestion_label_;
     GtkButton* apply_button_;
     GtkImage* icon_image_;
@@ -34,18 +39,27 @@ private:
     std::unique_ptr<infrastructure::TerminalWidget> terminal_;
     std::unique_ptr<infrastructure::ConfigManager> config_manager_;
     std::unique_ptr<application::PredictionService> prediction_service_;
+    std::unique_ptr<application::SuggestionCache> suggestion_cache_;
+    std::unique_ptr<SearchBar> search_bar_;
     
     // State
     std::string input_buffer_;
     std::optional<domain::Suggestion> current_suggestion_;
     std::string last_query_;
     bool is_predicting_;
+    guint debounce_timer_id_;
     
     // UI setup
     void setup_ui();
     void setup_header_bar();
-    void setup_suggestion_bar();
+    void setup_hamburger_menu();
+    void setup_search_button();
+    void setup_suggestion_overlay();
     void load_css();
+    
+    // Suggestion overlay control
+    void show_suggestion_overlay();
+    void hide_suggestion_overlay();
     
     // Event handlers
     void on_key_press(GdkEventKey* event);
@@ -61,6 +75,19 @@ private:
     static void on_config_clicked_static(GtkButton* button, gpointer user_data);
     static void on_apply_suggestion_static(GtkButton* button, gpointer user_data);
     static void on_destroy_static(GtkWidget* widget, gpointer user_data);
+    static void on_new_window_static(GtkMenuItem* item, gpointer user_data);
+    static void on_about_clicked_static(GtkMenuItem* item, gpointer user_data);
+    static void on_search_clicked_static(GtkButton* button, gpointer user_data);
+    
+    // Menu handlers
+    void on_new_window();
+    void on_about_clicked();
+    void on_search_clicked();
+    
+    // Search handlers
+    void toggle_search();
+    void on_search_query(const std::string& query, bool case_sensitive, bool regex);
+    void on_search_navigate(bool next);
     
     // Helper methods
     void update_suggestion_ui(const std::string& text, bool enable_button);
