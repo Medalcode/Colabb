@@ -109,8 +109,8 @@ Presentation Layer (GTK UI)
 ```bash
 cd build
 cmake -DBUILD_TESTING=ON ..
-make
-ctest
+make colabb_tests
+./tests/colabb_tests
 ```
 
 ## 📁 Estructura del Proyecto

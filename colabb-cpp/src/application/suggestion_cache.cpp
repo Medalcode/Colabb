@@ -68,15 +68,34 @@ bool SuggestionCache::is_expired(const CacheEntry& entry) const {
 }
 
 std::string SuggestionCache::normalize_query(const std::string& query) const {
-    std::string normalized = query;
+    std::string normalized;
+    normalized.reserve(query.length());
     
-    // Convert to lowercase
-    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
-        [](unsigned char c) { return std::tolower(c); });
+    bool space_seen = false;
+    for (char c : query) {
+        if (std::isspace(c)) {
+            if (!space_seen && !normalized.empty()) {
+                normalized += ' ';
+                space_seen = true;
+            }
+        } else {
+            normalized += std::tolower(c);
+            space_seen = false;
+        }
+    }
     
-    // Trim whitespace
-    normalized.erase(0, normalized.find_first_not_of(" \t\n\r"));
-    normalized.erase(normalized.find_last_not_of(" \t\n\r") + 1);
+    // Trim trailing space if any (from the loop logic, last char might be space if input ended with spaces)
+    // Wait, my logic adds space only if !space_seen. 
+    // If input is "a   b  ", 
+    // 'a': norm="a", space=false
+    // ' ': !space && !empty -> norm="a ", space=true
+    // ' ': space -> skip
+    // 'b': norm="a b", space=false
+    // ' ': !space && !empty -> norm="a b ", space=true
+    
+    if (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
     
     return normalized;
 }
