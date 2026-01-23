@@ -5,10 +5,13 @@ Una terminal moderna para Linux potenciada con Inteligencia Artificial, reescrit
 ## 🚀 Características
 
 - **Terminal Real**: Basada en VTE (GTK3), soporta todos tus comandos habituales
+- **Multi-Tab**: Gestiona múltiples terminales en pestañas con atajos de teclado
 - **Asistencia por IA**: Integración con Groq (Llama 3.1) y OpenAI
 - **Sistema Totem (`?`)**: Escribe `?` seguido de tu consulta para invocar a la IA
 - **Conciencia de Contexto**: La IA lee errores y salidas previas para sugerencias inteligentes
 - **Autocompletado Rápido**: Aplica sugerencias con `Ctrl + Space`
+- **Búsqueda en Terminal**: Busca texto con soporte para regex y sensibilidad a mayúsculas
+- **Caché Inteligente**: Las sugerencias se cachean para respuestas instantáneas
 - **Configuración Segura**: API Keys almacenadas con libsecret
 
 ## 🛠️ Requisitos
@@ -67,8 +70,24 @@ O ejecuta directamente desde el directorio build:
    - Presiona `Enter` para ejecutarlo
 
 3. **Atajos de Teclado**:
+
+   **Gestión de Pestañas:**
+   - `Ctrl + Shift + T`: Nueva pestaña
+   - `Ctrl + Shift + W`: Cerrar pestaña actual
+   - `Ctrl + PageUp`: Pestaña anterior
+   - `Ctrl + PageDown`: Pestaña siguiente
+
+   **Búsqueda:**
+   - `Ctrl + Shift + F`: Abrir/cerrar búsqueda
+   - `F3`: Buscar siguiente
+   - `Shift + F3`: Buscar anterior
+   - `Escape`: Cerrar búsqueda
+
+   **IA:**
    - `Ctrl + Space`: Aplicar sugerencia
    - `Escape`: Resetear estado de la IA
+
+   **Terminal:**
    - `Ctrl + C/U/L`: Limpiar línea actual
 
 ## 🏗️ Arquitectura
