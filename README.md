@@ -8,8 +8,9 @@ Una terminal moderna para Linux potenciada con Inteligencia Artificial, escrita 
 - **Asistencia por IA**: Integración con Groq (Llama 3.1) y OpenAI
 - **Sistema Totem (`?`)**: Escribe `?` seguido de tu consulta para invocar a la IA
 - **Conciencia de Contexto**: La IA lee errores y salidas previas para sugerencias inteligentes
-- **Autocompletado Rápido**: Aplica sugerencias con `Ctrl + Space`
-- **Configuración Segura**: API Keys almacenadas con libsecret
+- **Pestañas y Perfiles**: Trabaja en múltiples contextos con configuraciones visuales personalizadas.
+- **Internacionalización**: Disponible en Español e Inglés.
+- **Autocompletado Híbrido**: Usa `Tab` tanto para autocompletado de shell como para sugerencias de IA.
 
 ## 🛠️ Requisitos
 
@@ -23,6 +24,7 @@ sudo apt install \
     libgtk-3-dev \
     libvte-2.91-dev \
     libcurl4-openssl-dev \
+    libjsoncpp-dev \
     libsecret-1-dev
 ```
 
@@ -30,43 +32,36 @@ sudo apt install \
 
 ```bash
 cd colabb-cpp
+# Opcional: Generar paquete .deb
+./scripts/package_deb.sh
+sudo apt install ./colabb_1.0.0_amd64.deb
+
+# O compilar manualmente
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
-sudo make install
-```
-
-O ejecuta directamente:
-
-```bash
 ./colabb
 ```
 
 ## ▶️ Uso
 
 1. **Configuración Inicial**:
-   - Haz clic en el icono de engranaje (⚙️)
-   - Selecciona tu proveedor de IA (groq/openai)
-   - Pega tu API Key
-   - Haz clic en "Guardar y Validar"
+   - Ve a `Menú > Preferencias IA`
+   - Selecciona tu proveedor (Groq/OpenAI) e ingresa tu API Key.
 
-2. **Pedir ayuda a la IA**:
-   - Escribe `?` seguido de tu consulta
-   - Ejemplo: `? listar archivos ocultos`
-   - Presiona `Ctrl + Space` para aplicar
-   - Presiona `Enter` para ejecutar
+2. **Asistencia IA Inteligente**:
+   - **Preguntar**: Escribe `?` seguido de tu consulta (ej: `? deszipar archivo`).
+   - **Explicar Error**: Si un comando falla, presiona `Ctrl + Alt + E` para que la IA analice la salida.
+   - **Autocompletado**: Si ves una sugerencia, presiona `Tab` o `Ctrl + Space` para insertarla.
 
-3. **Atajos de Teclado**:
-   - `Ctrl + Space`: Aplicar sugerencia
-   - `Escape`: Resetear estado
-   - `Ctrl + C/U/L`: Limpiar línea
+3. **Gestión de Pestañas**:
+   - `Ctrl + Shift + T`: Nueva pestaña
+   - `Ctrl + Shift + W`: Cerrar pestaña
+   - `Ctrl + PageUp / PageDown`: Navegar entre pestañas
 
-## 📁 Estructura del Proyecto
-
-```
-colabb-cpp/          # Implementación C++ (actual)
-legacy-python/       # Implementación Python (deprecated)
-```
+4. **Perfiles**:
+   - Ve a `Menú > Perfiles` para personalizar fuentes, colores y comandos de inicio.
+   - Los cambios se aplican inmediatamente a todas las pestañas abiertas.
 
 ## 🤝 Contribución
 
@@ -75,7 +70,3 @@ Si encuentras bugs o tienes ideas, ¡abre un issue o PR!
 ## 📄 Licencia
 
 MIT
-
----
-
-**Nota**: La versión Python ha sido movida a `legacy-python/` y ya no se mantiene activamente. Se recomienda usar la versión C++ para mejor rendimiento y estabilidad.

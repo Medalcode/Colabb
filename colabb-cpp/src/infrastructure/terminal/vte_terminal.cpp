@@ -181,6 +181,18 @@ std::string TerminalWidget::strip_ansi_codes(const std::string& text) {
     return std::regex_replace(text, ansi_regex, "");
 }
 
+std::string TerminalWidget::get_current_directory() {
+    const char* uri = vte_terminal_get_current_directory_uri(vte_widget_);
+    if (!uri) return "";
+    
+    char* filename = g_filename_from_uri(uri, nullptr, nullptr);
+    if (!filename) return "";
+    
+    std::string path(filename);
+    g_free(filename);
+    return path;
+}
+
 bool TerminalWidget::search_text(const std::string& pattern, bool case_sensitive, bool regex) {
     if (pattern.empty()) {
         clear_search();
@@ -229,6 +241,40 @@ bool TerminalWidget::search_previous() {
 
 void TerminalWidget::clear_search() {
     vte_terminal_search_set_regex(vte_widget_, nullptr, 0);
+}
+
+void TerminalWidget::apply_profile(const domain::TerminalProfile& profile) {
+    // Font
+    std::string font_desc = profile.font_family + " " + std::to_string(profile.font_size);
+    PangoFontDescription* font = pango_font_description_from_string(font_desc.c_str());
+    vte_terminal_set_font(vte_widget_, font);
+    pango_font_description_free(font);
+    
+    // Colors
+    GdkRGBA bg, fg;
+    gdk_rgba_parse(&bg, profile.background_color.c_str());
+    gdk_rgba_parse(&fg, profile.foreground_color.c_str());
+    
+    // Palette
+    std::vector<GdkRGBA> palette_rgba;
+    for (const auto& color_hex : profile.palette) {
+        GdkRGBA color;
+        gdk_rgba_parse(&color, color_hex.c_str());
+        palette_rgba.push_back(color);
+    }
+    
+    vte_terminal_set_colors(vte_widget_, &fg, &bg, 
+                            palette_rgba.data(), palette_rgba.size());
+    
+    // Cursor
+    vte_terminal_set_cursor_blink_mode(vte_widget_, 
+        profile.cursor_blink ? VTE_CURSOR_BLINK_ON : VTE_CURSOR_BLINK_OFF);
+        
+    // Scrollback
+    vte_terminal_set_scrollback_lines(vte_widget_, profile.scrollback_lines);
+    
+    // Shell command update is slightly harder as it's spawn-time usually, 
+    // but maybe we store it for next spawn.
 }
 
 } // namespace infrastructure

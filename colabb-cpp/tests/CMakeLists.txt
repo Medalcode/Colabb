@@ -4,6 +4,8 @@ set(TEST_SOURCES
     main_test.cpp
     unit/suggestion_cache_test.cpp
     unit/config_manager_test.cpp
+    unit/profile_manager_test.cpp
+    unit/context_service_test.cpp
     # Add other test files here
 )
 
@@ -17,6 +19,8 @@ set(CORE_SOURCES
     ../src/application/prediction_service.cpp
     ../src/application/suggestion_cache.cpp
     ../src/ui/tab_manager.cpp
+    ../src/infrastructure/config/profile_manager.cpp
+    ../src/infrastructure/context/context_service.cpp
     # Converting UI components to be testable might require mocking or refactoring
     # For now, we focus on logic-heavy components
 )

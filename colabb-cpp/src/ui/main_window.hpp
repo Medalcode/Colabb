@@ -2,7 +2,13 @@
 #define COLABB_MAIN_WINDOW_HPP
 
 #include "infrastructure/terminal/vte_terminal.hpp"
+#include "infrastructure/terminal/vte_terminal.hpp"
 #include "infrastructure/config/config_manager.hpp"
+#include "infrastructure/config/profile_manager.hpp"
+#include "infrastructure/config/profile_manager.hpp"
+#include "infrastructure/context/context_service.hpp"
+#include "infrastructure/i18n/translation_manager.hpp"
+#include "ui/profile_dialog.hpp"
 #include "application/prediction_service.hpp"
 #include "application/suggestion_cache.hpp"
 #include "domain/models/suggestion.hpp"
@@ -34,10 +40,13 @@ private:
     GtkLabel* suggestion_label_;
     GtkButton* apply_button_;
     GtkImage* icon_image_;
+    GtkSpinner* spinner_;
     
     // Components
     std::unique_ptr<TabManager> tab_manager_;
     std::unique_ptr<infrastructure::ConfigManager> config_manager_;
+    std::unique_ptr<infrastructure::ProfileManager> profile_manager_;
+    std::unique_ptr<infrastructure::ContextService> context_service_;
     std::unique_ptr<application::PredictionService> prediction_service_;
     std::unique_ptr<application::SuggestionCache> suggestion_cache_;
     std::unique_ptr<SearchBar> search_bar_;
@@ -62,7 +71,7 @@ private:
     void hide_suggestion_overlay();
     
     // Event handlers
-    void on_key_press(GdkEventKey* event);
+    bool on_key_press(GdkEventKey* event);
     void on_apply_suggestion();
     void on_config_clicked();
     void on_escape_pressed();
@@ -78,11 +87,14 @@ private:
     static void on_new_window_static(GtkMenuItem* item, gpointer user_data);
     static void on_about_clicked_static(GtkMenuItem* item, gpointer user_data);
     static void on_search_clicked_static(GtkButton* button, gpointer user_data);
+    static void on_new_tab_static(GtkButton* button, gpointer user_data);
+    static void on_profiles_clicked_static(GtkMenuItem* item, gpointer user_data);
     
     // Menu handlers
     void on_new_window();
     void on_about_clicked();
     void on_search_clicked();
+    void on_profiles_clicked();
     
     // Tab handlers
     void on_new_tab();
@@ -94,7 +106,11 @@ private:
     void toggle_search();
     void on_search_query(const std::string& query, bool case_sensitive, bool regex);
     void on_search_navigate(bool next);
-    
+
+    // Explain Error
+    void on_explain_error();
+    static void on_explain_error_clicked_static(GtkMenuItem* item, gpointer user_data);
+
     // Helper methods
     void update_suggestion_ui(const std::string& text, bool enable_button);
     std::unique_ptr<domain::IAIProvider> create_ai_provider();

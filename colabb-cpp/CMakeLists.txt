@@ -32,8 +32,12 @@ set(SOURCES
     src/application/suggestion_cache.cpp
     src/ui/main_window.cpp
     src/ui/config_dialog.cpp
+    src/ui/profile_dialog.cpp
     src/ui/search_bar.cpp
     src/ui/tab_manager.cpp
+    src/infrastructure/config/profile_manager.cpp
+    src/infrastructure/context/context_service.cpp
+    src/infrastructure/i18n/translation_manager.cpp
 )
 
 add_executable(colabb ${SOURCES})

@@ -21,6 +21,14 @@ int TabManager::create_tab(const std::string& title) {
     // Create terminal
     tab->terminal = std::make_unique<infrastructure::TerminalWidget>();
     
+    // Apply profile
+    if (profile_manager_) {
+        // Just use default for now. Ideally, we could pass profile name to create_tab
+        std::string def_name = profile_manager_->get_default_profile_name();
+        auto profile = profile_manager_->get_profile(def_name);
+        tab->terminal->apply_profile(profile);
+    }
+    
     // Create tab content
     GtkWidget* content = create_tab_content(tab.get());
     
@@ -118,6 +126,20 @@ void TabManager::previous_tab() {
 
 void TabManager::switch_to_tab(int index) {
     gtk_notebook_set_current_page(notebook_, index);
+    gtk_notebook_set_current_page(notebook_, index);
+}
+
+void TabManager::refresh_all_tabs() {
+    if (!profile_manager_) return;
+    
+    // For now, re-apply default profile to all tabs
+    // In the future, we might track which profile each tab is using
+    std::string def_name = profile_manager_->get_default_profile_name();
+    auto profile = profile_manager_->get_profile(def_name);
+    
+    for (auto& tab : tabs_) {
+        tab->terminal->apply_profile(profile);
+    }
 }
 
 void TabManager::set_tab_created_callback(TabCreatedCallback callback) {
@@ -126,6 +148,10 @@ void TabManager::set_tab_created_callback(TabCreatedCallback callback) {
 
 void TabManager::set_tab_closed_callback(TabClosedCallback callback) {
     tab_closed_callback_ = std::move(callback);
+}
+
+void TabManager::set_profile_manager(infrastructure::ProfileManager* manager) {
+    profile_manager_ = manager;
 }
 
 GtkWidget* TabManager::create_tab_label(const std::string& title, int index) {

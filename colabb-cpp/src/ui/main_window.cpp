@@ -20,6 +20,8 @@ MainWindow::MainWindow()
     , debounce_timer_id_(0) {
     
     config_manager_ = std::make_unique<infrastructure::ConfigManager>();
+    profile_manager_ = std::make_unique<infrastructure::ProfileManager>();
+    context_service_ = std::make_unique<infrastructure::ContextService>();
     
     // Create AI provider based on config
     auto ai_provider = create_ai_provider();
@@ -71,6 +73,7 @@ void MainWindow::setup_ui() {
     
     // Create TabManager
     tab_manager_ = std::make_unique<TabManager>(notebook_);
+    tab_manager_->set_profile_manager(profile_manager_.get());
     tab_manager_->set_tab_created_callback([this](TabManager::TabInfo* tab) {
         this->on_tab_created(tab);
     });
@@ -100,18 +103,27 @@ void MainWindow::setup_header_bar() {
     // Add hamburger menu and search button
     setup_search_button();
     setup_hamburger_menu();
+    
+    // Add New Tab button (left side)
+    GtkWidget* new_tab_btn = gtk_button_new_from_icon_name("tab-new-symbolic", GTK_ICON_SIZE_BUTTON);
+    gtk_widget_set_tooltip_text(new_tab_btn, 
+        infrastructure::TranslationManager::instance().get("tab.new_tooltip").c_str());
+    g_signal_connect(new_tab_btn, "clicked", G_CALLBACK(on_new_tab_static), this);
+    gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar_), new_tab_btn);
 }
 
 void MainWindow::setup_hamburger_menu() {
     GtkWidget* menu_button = gtk_menu_button_new();
     gtk_button_set_image(GTK_BUTTON(menu_button),
         gtk_image_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_BUTTON));
-    gtk_widget_set_tooltip_text(menu_button, "Menú principal");
+    gtk_widget_set_tooltip_text(menu_button, 
+        infrastructure::TranslationManager::instance().get("menu.main_tooltip").c_str());
     
     GtkWidget* menu = gtk_menu_new();
     
     // Nueva ventana
-    GtkWidget* new_window = gtk_menu_item_new_with_label("Nueva ventana");
+    GtkWidget* new_window = gtk_menu_item_new_with_label(
+        infrastructure::TranslationManager::instance().get("menu.new_window").c_str());
     g_signal_connect(new_window, "activate", 
         G_CALLBACK(on_new_window_static), this);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), new_window);
@@ -121,13 +133,33 @@ void MainWindow::setup_hamburger_menu() {
         gtk_separator_menu_item_new());
     
     // Preferencias (AI Config)
-    GtkWidget* prefs = gtk_menu_item_new_with_label("Preferencias");
+    GtkWidget* prefs = gtk_menu_item_new_with_label(
+        infrastructure::TranslationManager::instance().get("menu.preferences").c_str());
     g_signal_connect(prefs, "activate", 
         G_CALLBACK(on_config_clicked_static), this);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), prefs);
+
+    // Perfiles
+    GtkWidget* profiles = gtk_menu_item_new_with_label(
+        infrastructure::TranslationManager::instance().get("menu.profiles").c_str());
+    g_signal_connect(profiles, "activate",
+        G_CALLBACK(on_profiles_clicked_static), this);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), profiles);
+
+    // Separator
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), 
+        gtk_separator_menu_item_new());
+
+    // Explicar Error
+    std::string explain_label = infrastructure::TranslationManager::instance().get("menu.explain_error") + " (Ctrl+Alt+E)";
+    GtkWidget* explain = gtk_menu_item_new_with_label(explain_label.c_str());
+    g_signal_connect(explain, "activate",
+        G_CALLBACK(on_explain_error_clicked_static), this);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), explain);
     
     // Acerca de
-    GtkWidget* about = gtk_menu_item_new_with_label("Acerca de");
+    GtkWidget* about = gtk_menu_item_new_with_label(
+        infrastructure::TranslationManager::instance().get("menu.about").c_str());
     g_signal_connect(about, "activate", 
         G_CALLBACK(on_about_clicked_static), this);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), about);
@@ -141,7 +173,8 @@ void MainWindow::setup_hamburger_menu() {
 void MainWindow::setup_search_button() {
     GtkWidget* search_button = gtk_button_new_from_icon_name(
         "edit-find-symbolic", GTK_ICON_SIZE_BUTTON);
-    gtk_widget_set_tooltip_text(search_button, "Buscar");
+    gtk_widget_set_tooltip_text(search_button, 
+        infrastructure::TranslationManager::instance().get("search.tooltip").c_str());
     
     g_signal_connect(search_button, "clicked", 
         G_CALLBACK(on_search_clicked_static), this);
@@ -168,6 +201,10 @@ void MainWindow::setup_suggestion_overlay() {
     // Icon
     icon_image_ = GTK_IMAGE(gtk_image_new_from_icon_name("dialog-idea-symbolic", GTK_ICON_SIZE_MENU));
     gtk_box_pack_start(GTK_BOX(suggestion_box_), GTK_WIDGET(icon_image_), FALSE, FALSE, 5);
+
+    // Spinner
+    spinner_ = GTK_SPINNER(gtk_spinner_new());
+    gtk_box_pack_start(GTK_BOX(suggestion_box_), GTK_WIDGET(spinner_), FALSE, FALSE, 5);
     
     // Label
     suggestion_label_ = GTK_LABEL(gtk_label_new(""));
@@ -176,7 +213,8 @@ void MainWindow::setup_suggestion_overlay() {
     gtk_box_pack_start(GTK_BOX(suggestion_box_), GTK_WIDGET(suggestion_label_), TRUE, TRUE, 0);
     
     // Apply button
-    apply_button_ = GTK_BUTTON(gtk_button_new_with_label("Aplicar (Ctrl+Space)"));
+    std::string apply_label = infrastructure::TranslationManager::instance().get("suggestion.apply") + " (Ctrl+Space)";
+    apply_button_ = GTK_BUTTON(gtk_button_new_with_label(apply_label.c_str()));
     gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(apply_button_)), "suggest-btn");
     gtk_widget_set_sensitive(GTK_WIDGET(apply_button_), FALSE);
     g_signal_connect(apply_button_, "clicked", G_CALLBACK(on_apply_suggestion_static), this);
@@ -233,13 +271,13 @@ void MainWindow::hide_suggestion_overlay() {
     gtk_revealer_set_reveal_child(GTK_REVEALER(suggestion_revealer_), FALSE);
 }
 
-void MainWindow::on_key_press(GdkEventKey* event) {
+bool MainWindow::on_key_press(GdkEventKey* event) {
     // Ctrl+Shift+F: Toggle search
     if ((event->state & GDK_CONTROL_MASK) && 
         (event->state & GDK_SHIFT_MASK) && 
         event->keyval == GDK_KEY_f) {
         toggle_search();
-        return;
+        return true;
     }
     
     // F3: Search navigation
@@ -249,65 +287,81 @@ void MainWindow::on_key_press(GdkEventKey* event) {
         } else {
             on_search_navigate(true); // next
         }
-        return;
+        return true;
     }
     
     // Ctrl+Shift+T: New tab
     if ((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) &&
         event->keyval == GDK_KEY_t) {
         on_new_tab();
-        return;
+        return true;
     }
     
     // Ctrl+Shift+W: Close tab
     if ((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) &&
         event->keyval == GDK_KEY_w) {
         on_close_tab();
-        return;
+        return true;
     }
     
     // Ctrl+PageUp/PageDown: Navigate tabs
     if (event->state & GDK_CONTROL_MASK) {
         if (event->keyval == GDK_KEY_Page_Up) {
             tab_manager_->previous_tab();
-            return;
+            return true;
         } else if (event->keyval == GDK_KEY_Page_Down) {
             tab_manager_->next_tab();
-            return;
+            return true;
         }
     }
     
     // Ctrl+Space: Apply suggestion
     if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_space) {
         on_apply_suggestion();
-        return;
+        return true;
+    }
+    
+    // Tab: Apply suggestion if active
+    if (event->keyval == GDK_KEY_Tab) {
+        if (current_suggestion_) {
+            on_apply_suggestion();
+            return true;
+        }
+    }
+    
+    // Ctrl+Alt+E: Explain Error
+    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_MOD1_MASK) && event->keyval == GDK_KEY_e) {
+        on_explain_error();
+        return true;
     }
     
     // Escape: Reset
     if (event->keyval == GDK_KEY_Escape) {
         on_escape_pressed();
-        return;
+        return true;
     }
     
     // Enter: Clear buffer
     if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
         input_buffer_.clear();
         update_suggestion_ui("Escribe '?' y espera la sugerencia...", false);
-        return;
+        return false; // Don't consume enter, let terminal handle it
     }
     
-    // Printable characters
-    if (event->keyval < 256 && g_unichar_isprint(event->keyval)) {
-        input_buffer_ += static_cast<char>(event->keyval);
-    }
-    
-    // Backspace
-    else if (event->keyval == GDK_KEY_BackSpace && !input_buffer_.empty()) {
-        input_buffer_.pop_back();
+    // Capture input for prediction
+    if (!event->state || (event->state & GDK_SHIFT_MASK)) {
+        // Printable characters
+        if (event->keyval < 256 && g_unichar_isprint(event->keyval)) {
+            input_buffer_ += static_cast<char>(event->keyval);
+        }
+        // Backspace
+        else if (event->keyval == GDK_KEY_BackSpace && !input_buffer_.empty()) {
+            input_buffer_.pop_back();
+        }
     }
     
     // Ctrl+C, Ctrl+U, Ctrl+L: Clear buffer
-    else if (event->state & GDK_CONTROL_MASK) {
+    if (event->state & GDK_CONTROL_MASK) {
         if (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_u || event->keyval == GDK_KEY_l) {
             input_buffer_.clear();
         }
@@ -329,6 +383,8 @@ void MainWindow::on_key_press(GdkEventKey* event) {
         self->debounce_timer_id_ = 0;
         return G_SOURCE_REMOVE;
     }, this);
+    
+    return false;
 }
 
 void MainWindow::process_input_buffer() {
@@ -365,15 +421,23 @@ void MainWindow::process_input_buffer() {
     if (!is_predicting_) {
         is_predicting_ = true;
         show_suggestion_overlay();
-        update_suggestion_ui("Consultando IA para: " + query + "...", false);
+        update_suggestion_ui("Consultando IA...", false);
+        gtk_spinner_start(spinner_);
+        gtk_widget_show(GTK_WIDGET(spinner_));
+        gtk_widget_hide(GTK_WIDGET(icon_image_));
         
         // Get context from terminal
         auto* terminal = get_current_terminal();
         if (!terminal) return;
-        std::string context = terminal->get_context(20);
+        
+        std::string term_context = terminal->get_context(20);
+        std::string cwd = terminal->get_current_directory();
+        std::string project_context = context_service_->get_context_prompt(cwd);
+        
+        std::string full_context = project_context + "\n\nRecent Terminal Output:\n" + term_context;
         
         // Request prediction
-        prediction_service_->predict_async(query, context,
+        prediction_service_->predict_async(query, full_context,
             [this](std::optional<domain::Suggestion> suggestion) {
                 // This callback runs in worker thread, use g_idle_add for UI update
                 g_idle_add([](gpointer user_data) -> gboolean {
@@ -388,7 +452,10 @@ void MainWindow::process_input_buffer() {
 
 void MainWindow::on_prediction_result(std::optional<domain::Suggestion> suggestion) {
     is_predicting_ = false;
-    
+    gtk_spinner_stop(spinner_);
+    gtk_widget_hide(GTK_WIDGET(spinner_));
+    gtk_widget_show(GTK_WIDGET(icon_image_));
+
     if (suggestion) {
         current_suggestion_ = suggestion;
         
@@ -498,6 +565,11 @@ void MainWindow::on_search_clicked_static(GtkButton* button, gpointer user_data)
     self->on_search_clicked();
 }
 
+void MainWindow::on_new_tab_static(GtkButton* button, gpointer user_data) {
+    auto* self = static_cast<MainWindow*>(user_data);
+    self->on_new_tab();
+}
+
 void MainWindow::on_new_window() {
     // Create a new instance of MainWindow
     MainWindow* new_win = new MainWindow();
@@ -576,7 +648,7 @@ void MainWindow::on_tab_created(TabManager::TabInfo* tab) {
     
     // Set up terminal key press callback for this tab
     tab->terminal->set_key_press_callback([this](GdkEventKey* event) {
-        this->on_key_press(event);
+        return this->on_key_press(event);
     });
     
     // Focus the terminal
@@ -591,6 +663,57 @@ void MainWindow::on_tab_closed(int index) {
 infrastructure::TerminalWidget* MainWindow::get_current_terminal() {
     auto* tab = tab_manager_->get_current_tab();
     return tab ? tab->terminal.get() : nullptr;
+}
+
+void MainWindow::on_profiles_clicked_static(GtkMenuItem* item, gpointer user_data) {
+    auto* self = static_cast<MainWindow*>(user_data);
+    self->on_profiles_clicked();
+}
+
+void MainWindow::on_profiles_clicked() {
+    ProfileDialog dialog(GTK_WINDOW(window_), profile_manager_.get());
+    dialog.run();
+    
+    // Apply changes (if any) to open tabs
+    tab_manager_->refresh_all_tabs();
+}
+
+void MainWindow::on_explain_error_clicked_static(GtkMenuItem* item, gpointer user_data) {
+    auto* self = static_cast<MainWindow*>(user_data);
+    self->on_explain_error();
+}
+
+void MainWindow::on_explain_error() {
+    auto* terminal = get_current_terminal();
+    if (!terminal) return;
+    
+    // Capture output
+    std::string output = terminal->get_context(40);
+    std::string cwd = terminal->get_current_directory();
+    std::string project_context = context_service_->get_context_prompt(cwd);
+    
+    std::string prompt = project_context + 
+        "\n\nAnalyze the following terminal output. Explain any errors found and suggest a fix:\n\n" + output;
+        
+    // Reuse prediction UI
+    if (!is_predicting_) {
+        is_predicting_ = true;
+        show_suggestion_overlay();
+        update_suggestion_ui("Analizando error...", false);
+        gtk_spinner_start(spinner_);
+        gtk_widget_show(GTK_WIDGET(spinner_));
+        gtk_widget_hide(GTK_WIDGET(icon_image_));
+        
+        prediction_service_->predict_async("Explain Error", prompt,
+            [this](std::optional<domain::Suggestion> suggestion) {
+                g_idle_add([](gpointer user_data) -> gboolean {
+                    auto* pair = static_cast<std::pair<MainWindow*, std::optional<domain::Suggestion>>*>(user_data);
+                    pair->first->on_prediction_result(pair->second);
+                    delete pair;
+                    return G_SOURCE_REMOVE;
+                }, new std::pair<MainWindow*, std::optional<domain::Suggestion>>(this, suggestion));
+            });
+    }
 }
 
 } // namespace ui

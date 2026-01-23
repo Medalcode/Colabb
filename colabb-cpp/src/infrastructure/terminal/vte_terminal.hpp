@@ -7,6 +7,8 @@
 #include <functional>
 #include <memory>
 
+#include "domain/models/terminal_profile.hpp"
+
 namespace colabb {
 namespace infrastructure {
 
@@ -15,16 +17,23 @@ public:
     TerminalWidget();
     ~TerminalWidget();
 
+    // Configuration
+    void apply_profile(const domain::TerminalProfile& profile);
+
     // Terminal operations
     void spawn_shell(const std::string& shell_path);
     std::string get_current_line();
     std::string get_context(int num_lines = 20);
+    std::string get_current_directory();
     void feed_text(const std::string& text);
     void clear_line();
 
     // Event callbacks
-    using KeyPressCallback = std::function<void(GdkEventKey*)>;
+    using KeyPressCallback = std::function<bool(GdkEventKey*)>;
     void set_key_press_callback(KeyPressCallback callback);
+
+    using ProcessExitCallback = std::function<void(int)>;
+    void set_process_exit_callback(ProcessExitCallback callback);
 
     // Widget access
     GtkWidget* widget() const { return GTK_WIDGET(vte_widget_); }
@@ -39,9 +48,11 @@ private:
     ::VteTerminal* vte_widget_;
     std::string session_log_path_;
     KeyPressCallback key_press_callback_;
+    ProcessExitCallback process_exit_callback_;
 
     // Static callback wrapper for GTK
     static gboolean on_key_press_static(GtkWidget* widget, GdkEventKey* event, gpointer user_data);
+    static void on_child_exited_static(VteTerminal* terminal, gint status, gpointer user_data);
     
     // Helper methods
     std::string read_log_tail(size_t bytes = 2000);

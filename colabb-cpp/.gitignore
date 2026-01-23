@@ -13,3 +13,7 @@ cmake_install.cmake
 Makefile
 compile_commands.json
 .DS_Store
+
+# Packaging
+pkg/
+*.deb
