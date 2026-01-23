@@ -6,6 +6,7 @@ set(TEST_SOURCES
     unit/config_manager_test.cpp
     unit/profile_manager_test.cpp
     unit/context_service_test.cpp
+    unit/translation_manager_test.cpp
     # Add other test files here
 )
 
@@ -21,6 +22,8 @@ set(CORE_SOURCES
     ../src/ui/tab_manager.cpp
     ../src/infrastructure/config/profile_manager.cpp
     ../src/infrastructure/context/context_service.cpp
+    ../src/infrastructure/i18n/translation_manager.cpp
+    # Converting UI components to be testable might require mocking or refactoring
     # Converting UI components to be testable might require mocking or refactoring
     # For now, we focus on logic-heavy components
 )

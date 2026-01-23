@@ -71,6 +71,11 @@ void MainWindow::setup_ui() {
     gtk_notebook_set_scrollable(notebook_, TRUE);
     gtk_notebook_set_show_border(notebook_, FALSE);
     
+    g_signal_connect(notebook_, "switch-page", 
+        G_CALLBACK(+[](GtkNotebook* notebook, GtkWidget* page, guint page_num, gpointer data) {
+            static_cast<MainWindow*>(data)->on_tab_switched(page, page_num);
+        }), this);
+    
     // Create TabManager
     tab_manager_ = std::make_unique<TabManager>(notebook_);
     tab_manager_->set_profile_manager(profile_manager_.get());
@@ -156,6 +161,17 @@ void MainWindow::setup_hamburger_menu() {
     g_signal_connect(explain, "activate",
         G_CALLBACK(on_explain_error_clicked_static), this);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), explain);
+
+    // Separator
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), 
+        gtk_separator_menu_item_new());
+
+    // Reportar Problema
+    GtkWidget* report = gtk_menu_item_new_with_label(
+        infrastructure::TranslationManager::instance().get("menu.report_issue").c_str());
+    g_signal_connect(report, "activate", 
+        G_CALLBACK(on_report_issue_clicked_static), this);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), report);
     
     // Acerca de
     GtkWidget* about = gtk_menu_item_new_with_label(
@@ -592,6 +608,23 @@ void MainWindow::on_about_clicked() {
     gtk_widget_destroy(about);
 }
 
+void MainWindow::on_report_issue_clicked() {
+    GError* error = nullptr;
+    gtk_show_uri_on_window(GTK_WINDOW(window_), 
+        "https://github.com/Medalcode/Colabb/issues/new", 
+        GDK_CURRENT_TIME, &error);
+        
+    if (error) {
+        std::cerr << "Error opening URL: " << error->message << std::endl;
+        g_error_free(error);
+    }
+}
+
+void MainWindow::on_report_issue_clicked_static(GtkMenuItem* item, gpointer user_data) {
+    auto* self = static_cast<MainWindow*>(user_data);
+    self->on_report_issue_clicked();
+}
+
 void MainWindow::on_search_clicked() {
     toggle_search();
 }
@@ -713,6 +746,31 @@ void MainWindow::on_explain_error() {
                     return G_SOURCE_REMOVE;
                 }, new std::pair<MainWindow*, std::optional<domain::Suggestion>>(this, suggestion));
             });
+    }
+}
+
+void MainWindow::on_tab_switched(GtkWidget* page, guint page_num) {
+    auto* tab = tab_manager_->get_tab(page_num);
+    if (!tab) return;
+    
+    // Reparent suggestion revealer to new tab's overlay
+    if (suggestion_revealer_) {
+        // Protect widget from destruction during remove
+        g_object_ref(suggestion_revealer_);
+        
+        GtkWidget* parent = gtk_widget_get_parent(suggestion_revealer_);
+        if (parent) {
+            gtk_container_remove(GTK_CONTAINER(parent), suggestion_revealer_);
+        }
+        
+        gtk_overlay_add_overlay(GTK_OVERLAY(tab->overlay), suggestion_revealer_);
+        
+        // Ensure positioning
+        gtk_widget_set_valign(suggestion_revealer_, GTK_ALIGN_END);
+        gtk_widget_set_halign(suggestion_revealer_, GTK_ALIGN_FILL);
+        
+        // Release our temporary reference
+        g_object_unref(suggestion_revealer_);
     }
 }
 

@@ -39,20 +39,21 @@ int TabManager::create_tab(const std::string& title) {
     int page_num = gtk_notebook_append_page(notebook_, content, label);
     gtk_notebook_set_tab_reorderable(notebook_, content, TRUE);
     
-    // Switch to new tab
+    // Store tab info BEFORE switching page so callbacks can find it
+    TabInfo* raw_ptr = tab.get();
+    tabs_.push_back(std::move(tab));
+    
+    // Switch to new tab (triggers switch-page signal)
     gtk_notebook_set_current_page(notebook_, page_num);
     
     // Spawn shell
     const char* shell = getenv("SHELL");
     if (!shell) shell = "/bin/bash";
-    tab->terminal->spawn_shell(shell);
-    
-    // Store tab
-    tabs_.push_back(std::move(tab));
+    raw_ptr->terminal->spawn_shell(shell);
     
     // Callback
     if (tab_created_callback_) {
-        tab_created_callback_(tabs_.back().get());
+        tab_created_callback_(raw_ptr);
     }
     
     gtk_widget_show_all(content);
@@ -166,9 +167,12 @@ GtkWidget* TabManager::create_tab_label(const std::string& title, int index) {
         "window-close-symbolic", GTK_ICON_SIZE_MENU);
     gtk_button_set_relief(GTK_BUTTON(close_btn), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close_btn, FALSE);
+    
+    // Pass this (TabManager) as user_data
     g_signal_connect(close_btn, "clicked", 
         G_CALLBACK(on_tab_close_clicked_static), 
-        GINT_TO_POINTER(index));
+        this);
+        
     gtk_box_pack_end(GTK_BOX(box), close_btn, FALSE, FALSE, 0);
     
     gtk_widget_show_all(box);
@@ -190,9 +194,23 @@ GtkWidget* TabManager::create_tab_content(TabInfo* tab) {
 }
 
 void TabManager::on_tab_close_clicked_static(GtkButton* button, gpointer user_data) {
-    int index = GPOINTER_TO_INT(user_data);
-    // Note: We need to get TabManager instance somehow
-    // This will be handled by MainWindow
+    auto* self = static_cast<TabManager*>(user_data);
+    
+    // Find which tab this button belongs to
+    GtkWidget* btn_widget = GTK_WIDGET(button);
+    GtkWidget* box = gtk_widget_get_parent(btn_widget); // The HBox (label + button)
+    
+    if (!box) return;
+
+    // Iterate pages to find which one has this label widget
+    int n_pages = gtk_notebook_get_n_pages(self->notebook_);
+    for (int i = 0; i < n_pages; i++) {
+        GtkWidget* page = gtk_notebook_get_nth_page(self->notebook_, i);
+        if (gtk_notebook_get_tab_label(self->notebook_, page) == box) {
+            self->on_tab_close_clicked(i);
+            return;
+        }
+    }
 }
 
 void TabManager::on_tab_close_clicked(int index) {

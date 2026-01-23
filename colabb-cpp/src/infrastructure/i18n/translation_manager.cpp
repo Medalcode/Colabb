@@ -37,6 +37,7 @@ void TranslationManager::load_es() {
     translations_["menu.preferences"] = "Preferencias IA";
     translations_["menu.profiles"] = "Perfiles";
     translations_["menu.explain_error"] = "Explicar Error";
+    translations_["menu.report_issue"] = "Reportar un problema";
     translations_["menu.about"] = "Acerca de";
     translations_["menu.main_tooltip"] = "Menú principal";
     translations_["tab.new"] = "Nueva pestaña";
@@ -54,6 +55,7 @@ void TranslationManager::load_en() {
     translations_["menu.preferences"] = "AI Preferences";
     translations_["menu.profiles"] = "Profiles";
     translations_["menu.explain_error"] = "Explain Error";
+    translations_["menu.report_issue"] = "Report an Issue";
     translations_["menu.about"] = "About";
     translations_["menu.main_tooltip"] = "Main Menu";
     translations_["tab.new"] = "New Tab";

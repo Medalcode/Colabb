@@ -1,0 +1,43 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config \
+            libgtk-3-dev libvte-2.91-dev libcurl4-openssl-dev \
+            libjsoncpp-dev libsecret-1-dev
+
+      - name: Configure CMake
+        run: cmake -B build -S colabb-cpp
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: cd build && ctest --output-on-failure
+
+      - name: Create Deb Package
+        run: |
+          cd colabb-cpp
+          chmod +x scripts/package_deb.sh
+          ./scripts/package_deb.sh
+
+      - name: Upload .deb Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: colabb-deb
+          path: colabb-cpp/colabb_*.deb

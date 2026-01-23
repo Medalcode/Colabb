@@ -1,0 +1,50 @@
+name: colabb
+base: core22
+version: "1.0.0"
+summary: Modern terminal with AI assistance
+description: |
+  Colabb Terminal is a modern Linux terminal emulator empowered by Artificial Intelligence.
+
+  Features:
+  - Native VTE-based terminal emulator
+  - AI Context Awareness: Analyzes errors and output
+  - Smart Autocomplete: Tab-complete natural language to commands
+  - Multi-tab support and Profiles
+  - Written in C++ for performance
+
+grade: stable
+confinement: strict
+
+apps:
+  colabb:
+    command: usr/bin/colabb
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - network-bind
+      - ssh-keys
+      - opengl
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
+
+parts:
+  colabb:
+    plugin: cmake
+    source: .
+    build-packages:
+      - build-essential
+      - libgtk-3-dev
+      - libvte-2.91-dev
+      - libcurl4-openssl-dev
+      - libjsoncpp-dev
+      - libsecret-1-dev
+    stage-packages:
+      - libvte-2.91-0
+      - libcurl4
+      - libjsoncpp25
+      - libsecret-1-0
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/usr
