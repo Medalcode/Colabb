@@ -33,6 +33,7 @@ set(SOURCES
     src/ui/main_window.cpp
     src/ui/config_dialog.cpp
     src/ui/search_bar.cpp
+    src/ui/tab_manager.cpp
 )
 
 add_executable(colabb ${SOURCES})

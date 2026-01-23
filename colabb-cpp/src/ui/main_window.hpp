@@ -7,6 +7,7 @@
 #include "application/suggestion_cache.hpp"
 #include "domain/models/suggestion.hpp"
 #include "ui/search_bar.hpp"
+#include "ui/tab_manager.hpp"
 #include <gtk/gtk.h>
 #include <memory>
 #include <string>
@@ -27,8 +28,7 @@ private:
     GtkWidget* window_;
     GtkWidget* header_bar_;
     GtkWidget* vbox_;
-    GtkWidget* overlay_;
-    GtkWidget* scrolled_window_;
+    GtkNotebook* notebook_;
     GtkWidget* suggestion_revealer_;
     GtkWidget* suggestion_box_;
     GtkLabel* suggestion_label_;
@@ -36,7 +36,7 @@ private:
     GtkImage* icon_image_;
     
     // Components
-    std::unique_ptr<infrastructure::TerminalWidget> terminal_;
+    std::unique_ptr<TabManager> tab_manager_;
     std::unique_ptr<infrastructure::ConfigManager> config_manager_;
     std::unique_ptr<application::PredictionService> prediction_service_;
     std::unique_ptr<application::SuggestionCache> suggestion_cache_;
@@ -84,6 +84,12 @@ private:
     void on_about_clicked();
     void on_search_clicked();
     
+    // Tab handlers
+    void on_new_tab();
+    void on_close_tab();
+    void on_tab_created(TabManager::TabInfo* tab);
+    void on_tab_closed(int index);
+    
     // Search handlers
     void toggle_search();
     void on_search_query(const std::string& query, bool case_sensitive, bool regex);
@@ -92,6 +98,7 @@ private:
     // Helper methods
     void update_suggestion_ui(const std::string& text, bool enable_button);
     std::unique_ptr<domain::IAIProvider> create_ai_provider();
+    infrastructure::TerminalWidget* get_current_terminal();
 };
 
 } // namespace ui

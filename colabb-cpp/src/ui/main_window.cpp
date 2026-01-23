@@ -10,8 +10,7 @@ MainWindow::MainWindow()
     : window_(nullptr)
     , header_bar_(nullptr)
     , vbox_(nullptr)
-    , overlay_(nullptr)
-    , scrolled_window_(nullptr)
+    , notebook_(nullptr)
     , suggestion_revealer_(nullptr)
     , suggestion_box_(nullptr)
     , suggestion_label_(nullptr)
@@ -21,7 +20,6 @@ MainWindow::MainWindow()
     , debounce_timer_id_(0) {
     
     config_manager_ = std::make_unique<infrastructure::ConfigManager>();
-    terminal_ = std::make_unique<infrastructure::TerminalWidget>();
     
     // Create AI provider based on config
     auto ai_provider = create_ai_provider();
@@ -66,35 +64,31 @@ void MainWindow::setup_ui() {
     // Add search bar (hidden by default)
     gtk_box_pack_start(GTK_BOX(vbox_), search_bar_->widget(), FALSE, FALSE, 0);
     
-    // Create overlay for terminal + suggestion
-    overlay_ = gtk_overlay_new();
+    // Create notebook for tabs
+    notebook_ = GTK_NOTEBOOK(gtk_notebook_new());
+    gtk_notebook_set_scrollable(notebook_, TRUE);
+    gtk_notebook_set_show_border(notebook_, FALSE);
     
-    // Add terminal with scrolled window
-    scrolled_window_ = gtk_scrolled_window_new(nullptr, nullptr);
-    gtk_container_add(GTK_CONTAINER(scrolled_window_), terminal_->widget());
-    gtk_container_add(GTK_CONTAINER(overlay_), scrolled_window_);
+    // Create TabManager
+    tab_manager_ = std::make_unique<TabManager>(notebook_);
+    tab_manager_->set_tab_created_callback([this](TabManager::TabInfo* tab) {
+        this->on_tab_created(tab);
+    });
+    tab_manager_->set_tab_closed_callback([this](int index) {
+        this->on_tab_closed(index);
+    });
     
-    // Setup suggestion overlay (hidden by default)
+    // Setup suggestion overlay (will be added to each tab)
     setup_suggestion_overlay();
     
-    // Add overlay to vbox
-    gtk_box_pack_start(GTK_BOX(vbox_), overlay_, TRUE, TRUE, 0);
+    // Add notebook to vbox
+    gtk_box_pack_start(GTK_BOX(vbox_), GTK_WIDGET(notebook_), TRUE, TRUE, 0);
     
     // Load CSS
     load_css();
     
-    // Spawn shell
-    const char* shell = getenv("SHELL");
-    if (!shell) shell = "/bin/bash";
-    terminal_->spawn_shell(shell);
-    
-    // Set up terminal key press callback
-    terminal_->set_key_press_callback([this](GdkEventKey* event) {
-        this->on_key_press(event);
-    });
-    
-    // Focus terminal
-    gtk_widget_grab_focus(terminal_->widget());
+    // Create first tab
+    tab_manager_->create_tab("Terminal");
 }
 
 void MainWindow::setup_header_bar() {
@@ -192,7 +186,7 @@ void MainWindow::setup_suggestion_overlay() {
     gtk_container_add(GTK_CONTAINER(suggestion_revealer_), suggestion_box_);
     
     // Add to overlay at bottom-center
-    gtk_overlay_add_overlay(GTK_OVERLAY(overlay_), suggestion_revealer_);
+    // gtk_overlay_add_overlay(GTK_OVERLAY(overlay_), suggestion_revealer_); // Removed as per instruction
     gtk_widget_set_halign(suggestion_revealer_, GTK_ALIGN_CENTER);
     gtk_widget_set_valign(suggestion_revealer_, GTK_ALIGN_END);
     
@@ -256,6 +250,31 @@ void MainWindow::on_key_press(GdkEventKey* event) {
             on_search_navigate(true); // next
         }
         return;
+    }
+    
+    // Ctrl+Shift+T: New tab
+    if ((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) &&
+        event->keyval == GDK_KEY_t) {
+        on_new_tab();
+        return;
+    }
+    
+    // Ctrl+Shift+W: Close tab
+    if ((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) &&
+        event->keyval == GDK_KEY_w) {
+        on_close_tab();
+        return;
+    }
+    
+    // Ctrl+PageUp/PageDown: Navigate tabs
+    if (event->state & GDK_CONTROL_MASK) {
+        if (event->keyval == GDK_KEY_Page_Up) {
+            tab_manager_->previous_tab();
+            return;
+        } else if (event->keyval == GDK_KEY_Page_Down) {
+            tab_manager_->next_tab();
+            return;
+        }
     }
     
     // Ctrl+Space: Apply suggestion
@@ -349,7 +368,9 @@ void MainWindow::process_input_buffer() {
         update_suggestion_ui("Consultando IA para: " + query + "...", false);
         
         // Get context from terminal
-        std::string context = terminal_->get_context(20);
+        auto* terminal = get_current_terminal();
+        if (!terminal) return;
+        std::string context = terminal->get_context(20);
         
         // Request prediction
         prediction_service_->predict_async(query, context,
@@ -397,9 +418,12 @@ void MainWindow::on_apply_suggestion() {
         return;
     }
     
+    auto* terminal = get_current_terminal();
+    if (!terminal) return;
+    
     // Clear current line and feed suggestion
-    terminal_->clear_line();
-    terminal_->feed_text(current_suggestion_->command);
+    terminal->clear_line();
+    terminal->feed_text(current_suggestion_->command);
     
     // Reset state
     input_buffer_.clear();
@@ -408,7 +432,7 @@ void MainWindow::on_apply_suggestion() {
     hide_suggestion_overlay();
     
     // Focus terminal
-    gtk_widget_grab_focus(terminal_->widget());
+    gtk_widget_grab_focus(terminal->widget());
 }
 
 void MainWindow::on_config_clicked() {
@@ -501,30 +525,72 @@ void MainWindow::on_search_clicked() {
 }
 
 void MainWindow::toggle_search() {
+    auto* terminal = get_current_terminal();
+    if (!terminal) return;
+    
     if (search_bar_->is_visible()) {
         search_bar_->hide();
-        terminal_->clear_search();
-        gtk_widget_grab_focus(terminal_->widget());
+        terminal->clear_search();
+        gtk_widget_grab_focus(terminal->widget());
     } else {
         search_bar_->show();
     }
 }
 
 void MainWindow::on_search_query(const std::string& query, bool case_sensitive, bool regex) {
+    auto* terminal = get_current_terminal();
+    if (!terminal) return;
+    
     if (query.empty()) {
-        terminal_->clear_search();
+        terminal->clear_search();
         return;
     }
     
-    terminal_->search_text(query, case_sensitive, regex);
+    terminal->search_text(query, case_sensitive, regex);
 }
 
 void MainWindow::on_search_navigate(bool next) {
+    auto* terminal = get_current_terminal();
+    if (!terminal) return;
+    
     if (next) {
-        terminal_->search_next();
+        terminal->search_next();
     } else {
-        terminal_->search_previous();
+        terminal->search_previous();
     }
+}
+
+void MainWindow::on_new_tab() {
+    tab_manager_->create_tab("");
+}
+
+void MainWindow::on_close_tab() {
+    tab_manager_->close_current_tab();
+}
+
+void MainWindow::on_tab_created(TabManager::TabInfo* tab) {
+    // Add suggestion overlay to this tab's overlay
+    if (suggestion_revealer_) {
+        gtk_overlay_add_overlay(GTK_OVERLAY(tab->overlay), suggestion_revealer_);
+    }
+    
+    // Set up terminal key press callback for this tab
+    tab->terminal->set_key_press_callback([this](GdkEventKey* event) {
+        this->on_key_press(event);
+    });
+    
+    // Focus the terminal
+    gtk_widget_grab_focus(tab->terminal->widget());
+}
+
+void MainWindow::on_tab_closed(int index) {
+    // Clean up if needed
+    std::cout << "Tab closed: " << index << std::endl;
+}
+
+infrastructure::TerminalWidget* MainWindow::get_current_terminal() {
+    auto* tab = tab_manager_->get_current_tab();
+    return tab ? tab->terminal.get() : nullptr;
 }
 
 } // namespace ui
