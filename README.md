@@ -70,3 +70,11 @@ Si encuentras bugs o tienes ideas, ¡abre un issue o PR!
 ## 📄 Licencia
 
 MIT
+
+## Cambios recientes (resumen de la sesión de 2026-01-27)
+
+- `SuggestionCache` reimplementado como LRU para evitar O(n) en expulsión y mejorar rendimiento.
+- `PredictionService` ahora acepta `max_queue_size` y rechaza solicitudes cuando la cola está llena (callback con `nullopt`).
+- Se añadieron tests unitarios (incluyendo `prediction_service_queue_test.cpp`) y la suite de tests local pasó completamente.
+
+Ver `Bitacora.md` en la raíz para más detalles y próximos pasos.

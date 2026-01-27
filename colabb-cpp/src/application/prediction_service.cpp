@@ -4,10 +4,12 @@
 namespace colabb {
 namespace application {
 
-PredictionService::PredictionService(std::unique_ptr<domain::IAIProvider> provider)
+PredictionService::PredictionService(std::unique_ptr<domain::IAIProvider> provider,
+                                     size_t max_queue_size)
     : ai_provider_(std::move(provider))
-    , stop_worker_(false) {
-    
+    , stop_worker_(false)
+    , max_queue_size_(max_queue_size) {
+
     worker_thread_ = std::thread(&PredictionService::worker_loop, this);
 }
 
@@ -26,11 +28,26 @@ PredictionService::~PredictionService() {
 void PredictionService::predict_async(const std::string& query,
                                       const std::string& context,
                                       PredictionCallback callback) {
+    // If queue size limit is reached, reject immediately
+    bool rejected = false;
     {
         std::lock_guard<std::mutex> lock(queue_mutex_);
-        request_queue_.push({query, context, callback});
+        if (max_queue_size_ > 0 && request_queue_.size() >= max_queue_size_) {
+            rejected = true;
+        } else {
+            request_queue_.push({query, context, callback});
+            queue_cv_.notify_one();
+        }
     }
-    queue_cv_.notify_one();
+
+    if (rejected) {
+        // Notify caller immediately that request was rejected
+        try {
+            callback(std::nullopt);
+        } catch (...) {
+            // Swallow to avoid exceptions crossing boundaries
+        }
+    }
 }
 
 void PredictionService::cancel_pending() {

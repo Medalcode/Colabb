@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <optional>
+#include <list>
 
 namespace colabb {
 namespace application {
@@ -23,9 +24,13 @@ private:
     struct CacheEntry {
         domain::Suggestion suggestion;
         std::chrono::system_clock::time_point timestamp;
+        // Iterator into LRU list for O(1) updates/evictions
+        std::list<std::string>::iterator lru_it;
     };
     
     std::unordered_map<std::string, CacheEntry> cache_;
+    // Front = most recently used, Back = least recently used
+    std::list<std::string> lru_list_;
     size_t max_size_;
     std::chrono::minutes ttl_;
     

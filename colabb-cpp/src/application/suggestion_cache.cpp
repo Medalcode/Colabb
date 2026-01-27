@@ -12,33 +12,51 @@ SuggestionCache::SuggestionCache(size_t max_size, std::chrono::minutes ttl)
 
 void SuggestionCache::put(const std::string& query, const domain::Suggestion& suggestion) {
     std::string normalized = normalize_query(query);
-    
+    auto it = cache_.find(normalized);
+
+    // Update existing entry
+    if (it != cache_.end()) {
+        it->second.suggestion = suggestion;
+        it->second.timestamp = std::chrono::system_clock::now();
+        // Move key to front (most recently used)
+        lru_list_.splice(lru_list_.begin(), lru_list_, it->second.lru_it);
+        it->second.lru_it = lru_list_.begin();
+        return;
+    }
+
     // Evict if cache is full
     if (cache_.size() >= max_size_) {
         evict_oldest();
     }
-    
+
+    // Insert new entry at front
+    lru_list_.push_front(normalized);
     CacheEntry entry;
     entry.suggestion = suggestion;
     entry.timestamp = std::chrono::system_clock::now();
-    
-    cache_[normalized] = entry;
+    entry.lru_it = lru_list_.begin();
+    cache_[normalized] = std::move(entry);
 }
 
 std::optional<domain::Suggestion> SuggestionCache::get(const std::string& query) {
     std::string normalized = normalize_query(query);
-    
     auto it = cache_.find(normalized);
     if (it == cache_.end()) {
         return std::nullopt;
     }
-    
+
     // Check if expired
     if (is_expired(it->second)) {
+        // remove from lru list and map
+        lru_list_.erase(it->second.lru_it);
         cache_.erase(it);
         return std::nullopt;
     }
-    
+
+    // Move to front as most recently used
+    lru_list_.splice(lru_list_.begin(), lru_list_, it->second.lru_it);
+    it->second.lru_it = lru_list_.begin();
+
     return it->second.suggestion;
 }
 
@@ -47,18 +65,14 @@ void SuggestionCache::clear() {
 }
 
 void SuggestionCache::evict_oldest() {
-    if (cache_.empty()) {
+    if (lru_list_.empty()) {
         return;
     }
-    
-    auto oldest = cache_.begin();
-    for (auto it = cache_.begin(); it != cache_.end(); ++it) {
-        if (it->second.timestamp < oldest->second.timestamp) {
-            oldest = it;
-        }
-    }
-    
-    cache_.erase(oldest);
+
+    // Least recently used is at the back of the list
+    std::string key = lru_list_.back();
+    lru_list_.pop_back();
+    cache_.erase(key);
 }
 
 bool SuggestionCache::is_expired(const CacheEntry& entry) const {

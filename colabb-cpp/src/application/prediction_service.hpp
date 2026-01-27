@@ -17,7 +17,8 @@ class PredictionService {
 public:
     using PredictionCallback = std::function<void(std::optional<domain::Suggestion>)>;
     
-    explicit PredictionService(std::unique_ptr<domain::IAIProvider> provider);
+    explicit PredictionService(std::unique_ptr<domain::IAIProvider> provider,
+                               size_t max_queue_size = 10);
     ~PredictionService();
     
     // Async prediction
@@ -41,6 +42,7 @@ private:
     std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     bool stop_worker_;
+    size_t max_queue_size_;
     
     void worker_loop();
 };
