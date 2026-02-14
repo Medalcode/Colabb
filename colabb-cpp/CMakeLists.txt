@@ -38,6 +38,7 @@ set(SOURCES
     src/infrastructure/config/profile_manager.cpp
     src/infrastructure/context/context_service.cpp
     src/infrastructure/i18n/translation_manager.cpp
+    src/infrastructure/plugins/plugin_loader.cpp
 )
 
 add_executable(colabb ${SOURCES})
@@ -59,6 +60,11 @@ target_link_libraries(colabb
     nlohmann_json::nlohmann_json
     pthread
 )
+
+if(UNIX)
+    # dlopen/dlsym
+    target_link_libraries(colabb dl)
+endif()
 
 # Install
 install(TARGETS colabb DESTINATION bin)

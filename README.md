@@ -67,6 +67,16 @@ make -j$(nproc)
 
 Si encuentras bugs o tienes ideas, ¡abre un issue o PR!
 
+## 📚 Docs y extensibilidad (nuevas adiciones)
+
+Se han añadido documentos y ejemplos para facilitar la creación de proveedores (skills) y la integración de plugins dinámicos:
+
+- `colabb-cpp/docs/agent.md` — descripción del modelo de agentes, threading y puntos de extensión.
+- `colabb-cpp/docs/skills.md` — guía para crear `IAIProvider` y ejemplo de ABI para plugins (`create_provider`/`destroy_provider`).
+- `colabb-cpp/docs/examples/` — ejemplo `skill_skeleton.cpp`, `skill_manifest.json` y un `CMake` snippet para compilar providers como `SHARED`.
+
+Además se añadió una implementación inicial de `PluginLoader` en `src/infrastructure/plugins/` y se actualizó `CMakeLists.txt` para enlazar con `dl` en sistemas UNIX. Esto permite cargar proveedores implementados como shared libraries (ver `skills.md` para el contrato ABI y precauciones de seguridad).
+
 ## 📄 Licencia
 
 MIT

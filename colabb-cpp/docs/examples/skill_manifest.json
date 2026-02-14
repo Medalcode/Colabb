@@ -1,0 +1,9 @@
+{
+  "name": "skeleton_provider",
+  "version": "0.1.0",
+  "entry_symbol": "create_provider",
+  "destroy_symbol": "destroy_provider",
+  "thread_model": "worker-callback",
+  "capabilities": ["suggestion"],
+  "description": "Ejemplo DRAFT de provider que implementa IAIProvider."
+}

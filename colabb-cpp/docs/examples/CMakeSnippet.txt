@@ -1,0 +1,14 @@
+--- CMake snippet (DRAFT) --------------------------------------------
+# Ejemplo: compilar el provider como shared library
+
+add_library(skeleton_provider SHARED docs/examples/skill_skeleton.cpp)
+target_include_directories(skeleton_provider PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+)
+# Si tu provider necesita linkear con librerías del proyecto, añadirlas:
+# target_link_libraries(skeleton_provider PRIVATE colabb_core_lib)
+
+# Para instalar la shared lib en un path reconocible, puede usarse:
+# install(TARGETS skeleton_provider LIBRARY DESTINATION lib/colabb/plugins)
+
+---------------------------------------------------------------------
