@@ -69,6 +69,19 @@ endif()
 # Install
 install(TARGETS colabb DESTINATION bin)
 
+# Build example plugin used by integration tests
+add_library(example_provider SHARED docs/examples/skill_skeleton_extended.cpp)
+target_include_directories(example_provider PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+# Place plugin artifact in the build root so tests can load it by relative path
+set_target_properties(example_provider PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
 # Testing
 option(BUILD_TESTING "Build tests" ON)
 
