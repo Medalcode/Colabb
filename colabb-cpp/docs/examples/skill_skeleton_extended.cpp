@@ -1,8 +1,8 @@
 // Skill skeleton - ejemplo ampliado (ABI 1.0)
 #include <string>
 #include <optional>
-#include "colabb/domain/models/suggestion.hpp"
-#include "colabb/domain/ai/ai_provider.hpp"
+#include "domain/models/suggestion.hpp"
+#include "domain/ai/ai_provider.hpp"
 
 using namespace colabb::domain;
 
