@@ -73,6 +73,7 @@ install(TARGETS colabb DESTINATION bin)
 add_library(example_provider SHARED docs/examples/skill_skeleton_extended.cpp)
 target_include_directories(example_provider PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 # Place plugin artifact in the build root so tests can load it by relative path
