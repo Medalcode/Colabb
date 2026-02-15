@@ -2,6 +2,7 @@
 #define COLABB_PLUGIN_LOADER_HPP
 
 #include <memory>
+#include <functional>
 #include <string>
 #include <vector>
 #include <mutex>
@@ -18,7 +19,7 @@ public:
 
     // Load a provider from a shared library. Returns nullptr on failure.
     // The returned unique_ptr will call the plugin's destroy function when destroyed.
-    std::unique_ptr<domain::IAIProvider> loadProvider(const std::string& path, const std::string& config_json);
+    std::unique_ptr<colabb::domain::IAIProvider, std::function<void(colabb::domain::IAIProvider*)>> loadProvider(const std::string& path, const std::string& config_json);
 
 private:
     std::mutex mutex_;

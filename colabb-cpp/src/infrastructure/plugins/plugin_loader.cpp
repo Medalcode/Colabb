@@ -10,8 +10,8 @@
 
 using namespace colabb::infrastructure::plugins;
 
-typedef domain::IAIProvider* (*create_fn_t)(const char*);
-typedef void (*destroy_fn_t)(domain::IAIProvider*);
+typedef colabb::domain::IAIProvider* (*create_fn_t)(const char*);
+typedef void (*destroy_fn_t)(colabb::domain::IAIProvider*);
 
 PluginLoader::PluginLoader() = default;
 
@@ -20,7 +20,7 @@ PluginLoader::~PluginLoader() {
     // Future improvement: allow unload when no providers remain.
 }
 
-std::unique_ptr<domain::IAIProvider> PluginLoader::loadProvider(const std::string& path, const std::string& config_json) {
+std::unique_ptr<colabb::domain::IAIProvider, std::function<void(colabb::domain::IAIProvider*)>> PluginLoader::loadProvider(const std::string& path, const std::string& config_json) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (path.empty()) return nullptr;
@@ -61,7 +61,7 @@ std::unique_ptr<domain::IAIProvider> PluginLoader::loadProvider(const std::strin
     }
 #endif
 
-    domain::IAIProvider* raw = nullptr;
+    colabb::domain::IAIProvider* raw = nullptr;
     try {
         raw = create_fn(config_json.c_str());
     } catch (const std::exception& e) {
@@ -86,11 +86,11 @@ std::unique_ptr<domain::IAIProvider> PluginLoader::loadProvider(const std::strin
     handles_.push_back(handle);
 
     // Wrap raw pointer with custom deleter that calls plugin's destroy function
-    auto deleter = [destroy_fn](domain::IAIProvider* p) {
+    std::function<void(colabb::domain::IAIProvider*)> deleter = [destroy_fn](colabb::domain::IAIProvider* p) {
         if (p && destroy_fn) {
             destroy_fn(p);
         }
     };
 
-    return std::unique_ptr<domain::IAIProvider>(raw, deleter);
+    return std::unique_ptr<colabb::domain::IAIProvider, std::function<void(colabb::domain::IAIProvider*)>>(raw, deleter);
 }
