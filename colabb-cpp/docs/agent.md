@@ -1,3 +1,79 @@
+# Agent — Diseño y Operaciones
+
+Última actualización: 15 de febrero de 2026
+
+Este documentodescribe el diseño, responsabilidades y requisitos operativos del "agent" dentro de Colabb. El objetivo es definir un componente escalable, seguro y testeable que orqueste las predicciones de IA, la gestión de caché y el ciclo de vida de los proveedores (providers).
+
+## Resumen y propósito
+
+El `agent` es la capa que coordina:
+
+- Recepción de peticiones desde la UI (`MainWindow`/`SearchBar`).
+- Encolado y ejecución asíncrona en `PredictionService`.
+- Conversación con un `IAIProvider` (local o plugin) para obtener sugerencias.
+- Almacenamiento y reutilización en `SuggestionCache`.
+- Gestión de credenciales y perfiles a través de `ConfigManager`/`ProfileManager`.
+
+Flujo de alto nivel: UI → `PredictionService` → `IAIProvider` → `HttpClient`/plugin → `SuggestionCache` → UI.
+
+Referencias: `colabb-cpp/src/application/prediction_service.hpp`, `colabb-cpp/src/domain/ai/ai_provider.hpp`, `colabb-cpp/src/application/suggestion_cache.hpp`.
+
+## Componentes clave
+
+- `PredictionService` — orquesta la cola de predicciones, trabajadores y callbacks. Ver `prediction_service.hpp`.
+- `SuggestionCache` — LRU + TTL para evitar solicitudes redundantes. Ver `suggestion_cache.hpp`.
+- `PluginLoader` — responsable de cargar providers externos. Ver `infrastructure/plugins/plugin_loader.hpp`.
+- `ConfigManager` / `ProfileManager` — almacenan API keys (libsecret) y perfiles de usuario.
+
+## Requisitos de concurrencia y modelo de hilos
+
+- `PredictionService` ejecuta predicciones en un worker thread; las APIs públicas son no bloqueantes y usan callbacks.
+- Cualquier acceso compartido a `SuggestionCache` o estructuras mutables debe ser sincronizado. Si se permite acceso concurrente desde plugins, la cache debe protegerse con mutexes.
+
+Recomendación: documentar y/o imponer que solo `PredictionService` interactúe con la cache, o bien convertir la cache en thread-safe.
+
+## Seguridad y políticas para plugins
+
+- No cargar código arbitrario en producción. Solo se permitirán plugins firmados/verificados por el equipo (firmas o hash verificados).
+- Verificar manifiesto del plugin antes de load (metadatos: `name`, `version`, `entry_symbol`, `capabilities`).
+- Ejecutar providers no confiables en entornos aislados (procesos separados, seccomp, contenedores) y aplicar límites de recursos y timeouts.
+
+Riesgos: ejecución de código malicioso, fugas de credenciales, incompatibilidad ABI. Ver `infrastructure/plugins/plugin_loader.cpp`.
+
+## Límites, timeouts y SLOs
+
+- Cada llamada `predict` debe tener un timeout externo (watchdog) además del timeout del `HttpClient`.
+- `PredictionService` debe exponerse con parámetros configurables: `max_queue_size`, `worker_count`, `per_request_timeout`.
+
+Propuesta inicial de SLOs:
+- 95th latency por predicción < 500 ms (modelo local) / < 2s (modelo remoto)
+- Reintentos con backoff exponencial para fallos transitorios.
+
+## Pruebas y monitoreo
+
+- Unit tests para `PredictionService`, `SuggestionCache`, `PluginLoader` (ya existen tests para cola y cache).
+- Tests de integración E2E que compilan un plugin de ejemplo, lo cargan con `PluginLoader` y ejercen `PredictionService`.
+- Métricas sugeridas: latencia por predicción, tasa de fallos, uso de memoria por plugin, tiempo de carga del plugin.
+
+## Operaciones y despliegue
+
+- Build reproducible con `CMakeLists.txt` (ver `colabb-cpp/CMakeLists.txt`).
+- Empaquetado: `.deb` script en `scripts/package_deb.sh`.
+- CI: compilar en Linux/macOS/Windows, ejecutar tests unitarios e integration tests.
+
+## Checklist de hardening antes de producción
+
+1. Estabilizar y versionar el ABI de plugins (ver `colabb-cpp/docs/ABI.md`).
+2. Implementar verificación de firmas/hashes para plugins.
+3. Añadir watchdog externo por `predict`.
+4. Hacer `SuggestionCache` thread-safe o limitar accesos.
+5. Añadir soporte multiplataforma para almacenamiento seguro de claves.
+6. Añadir tests E2E y CI que comprueben carga de plugin y comportamiento frente a timeouts.
+
+## Anexos y referencias rápidas
+
+- Firma mínima esperada para plugins: `extern "C" domain::IAIProvider* create_provider(const char* config_json);` y `extern "C" void destroy_provider(domain::IAIProvider* p);` (ver `docs/examples/skill_skeleton.cpp`).
+- Archivos mencionados: `colabb-cpp/src/application/prediction_service.hpp`, `colabb-cpp/src/infrastructure/plugins/plugin_loader.cpp`.
 # Agent (Agente) — Colabb
 
 Propósito

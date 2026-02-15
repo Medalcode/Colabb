@@ -1,3 +1,80 @@
+# Skills — Contrato, Implementación y Buenas Prácticas
+
+Última actualización: 15 de febrero de 2026
+
+Este documento define el contrato para desarrollar "skills" (providers) para Colabb, incluye manifest, ejemplos de implementación (estáticos y dinámicos), requisitos de seguridad, y pruebas recomendadas.
+
+## ¿Qué es un skill?
+
+Un skill es una implementación de la interfaz `IAIProvider` que puede residir internamente en el binario o como una librería dinámica cargada en tiempo de ejecución. Debe exponer comportamiento predecible para `predict()` y cumplir los requisitos de seguridad y compatibilidad ABI.
+
+Referencia: `colabb-cpp/src/domain/ai/ai_provider.hpp`.
+
+## Contrato y ABI recomendados
+
+Recomendación: definir un ABI en C estable y versionado. Mínimo recomendado:
+
+- `extern "C" const char* plugin_api_version();` — devuelve la versión del ABI.
+- `extern "C" domain::IAIProvider* create_provider(const char* config_json);`
+- `extern "C" void destroy_provider(domain::IAIProvider* p);`
+
+Notas:
+- El plugin devuelve un puntero a `IAIProvider` cuyo ciclo de vida está gestionado por `destroy_provider`.
+- Documentar ownership: el host es responsable de llamar a `destroy_provider`.
+- Evitar pasar objetos C++ ABI-sensitive a través del boundary; usar JSON-strings para configuración.
+
+## Manifest y metadata (skill_manifest.json)
+
+Campos recomendados:
+
+- `name` — identificador legible.
+- `version` — semver.
+- `abi_version` — versión del ABI que requiere.
+- `entry` — símbolo de entrada (p. ej. `create_provider`).
+- `capabilities` — lista de capacidades (streaming, batch, secure-storage-needed).
+- `signature` — firma o hash para verificación.
+
+Ejemplo: ver `colabb-cpp/docs/examples/skill_manifest.json`.
+
+## Implementación: pasos y CMake
+
+1. Implementa una clase que herede `domain::IAIProvider`.
+2. Exponer los símbolos C (`create_provider`/`destroy_provider`/`plugin_api_version`).
+3. Compilar como `SHARED` library. Añadir `CMakeLists.txt` snippet.
+
+Snippet de CMake (ver `docs/examples/CMakeSnippet.txt`) muestra cómo crear `.so`/`.dll` multiplataforma.
+
+## Seguridad y sandboxing
+
+- Los plugins deben ejecutarse con privilegios mínimos.
+- Requerir firma/verificación antes de carga.
+- Recomendado: ejecutar plugins no confiables en proceso separado y comunicarse por IPC (sockets Unix/Windows named pipes) para aislamiento.
+
+## Timeouts y límites
+
+- El host debe imponer `per_request_timeout` y `resource_limits` (memoria, CPU) por plugin.
+- Documentar que `predict()` no debe bloquear indefinidamente; si necesita long-running ops debe soportar cancelación.
+
+## Pruebas y CI para skills
+
+- Unit tests que verifiquen comportamiento de `predict()` con entradas conocidas.
+- Integration test que compila el plugin, lo carga con `PluginLoader` y ejecuta un escenario `PredictionService`.
+- Recomendado: añadir un pipeline CI que compile y ejecute tests en Linux/macOS/Windows.
+
+## Publicación y versionado
+
+- Firmar el `skill_manifest.json` con clave del equipo.
+- Mantener compatibilidad ABI; documentar pasos de migración cuando se cambia `abi_version`.
+
+## Ejemplos y plantillas
+
+- `docs/examples/skill_skeleton.cpp` — skeleton básico (actualizado para ABI y multiplataforma).
+- `docs/examples/CMakeSnippet.txt` — snippet multiplataforma.
+- `docs/examples/skill_manifest.json` — manifest de ejemplo.
+
+---
+
+Si necesitas, puedo generar una plantilla de CI y un plugin ejemplo listo para compilar en Linux/Windows/macOS.
 # Skills — Cómo crear un proveedor/skill para Colabb
 
 Resumen
