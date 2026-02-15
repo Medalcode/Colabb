@@ -8,7 +8,14 @@ using namespace colabb;
 TEST(PluginLoaderIntegration, LoadAndPredict) {
     infrastructure::PluginLoader loader;
     // Ruta relativa al ejemplo compilado por CI/local
-    std::string path = "./libexample_provider.so"; // Nota: CI adaptará a .dll/.dylib
+    std::string path;
+#if defined(_WIN32)
+    path = "./example_provider.dll";
+#elif defined(__APPLE__)
+    path = "./libexample_provider.dylib";
+#else
+    path = "./libexample_provider.so";
+#endif
     std::string cfg = "{}";
     auto provider = loader.loadProvider(path, cfg);
     ASSERT_NE(provider, nullptr);
