@@ -6,14 +6,16 @@
 
 using namespace colabb::domain;
 
-class ExampleProvider : public ai::IAIProvider {
+class ExampleProvider : public IAIProvider {
 public:
     ExampleProvider(const std::string& cfg) {}
     ~ExampleProvider() override = default;
 
-    std::optional<models::Suggestion> predict(const std::string& prompt, const std::string& context = "") override {
-        models::Suggestion s;
-        s.text = std::string("Respuesta ejemplo para: ") + prompt;
+    std::optional<Suggestion> predict(const std::string& prompt, const std::string& context = "") override {
+        Suggestion s;
+        s.command = std::string("Respuesta ejemplo para: ") + prompt;
+        s.explanation = "(plugin ejemplo)";
+        s.confidence = 0.5f;
         return s;
     }
 
@@ -24,10 +26,10 @@ extern "C" const char* plugin_api_version() {
     return "1.0";
 }
 
-extern "C" colabb::domain::ai::IAIProvider* create_provider(const char* config_json) {
+extern "C" colabb::domain::IAIProvider* create_provider(const char* config_json) {
     return new ExampleProvider(config_json ? config_json : "");
 }
 
-extern "C" void destroy_provider(colabb::domain::ai::IAIProvider* p) {
+extern "C" void destroy_provider(colabb::domain::IAIProvider* p) {
     delete p;
 }
