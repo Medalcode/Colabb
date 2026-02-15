@@ -127,7 +127,6 @@ void TabManager::previous_tab() {
 
 void TabManager::switch_to_tab(int index) {
     gtk_notebook_set_current_page(notebook_, index);
-    gtk_notebook_set_current_page(notebook_, index);
 }
 
 void TabManager::refresh_all_tabs() {

@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <mutex>
 
 typedef void CURL;
 
@@ -32,6 +33,7 @@ public:
     
 private:
     CURL* curl_;
+    static std::once_flag curl_init_flag_;
     
     static size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp);
 };

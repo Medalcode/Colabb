@@ -7,6 +7,7 @@ set(TEST_SOURCES
     unit/profile_manager_test.cpp
     unit/context_service_test.cpp
     unit/translation_manager_test.cpp
+    unit/prediction_service_queue_test.cpp
     # Add other test files here
 )
 

@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <cstdint>
 
 namespace colabb {
 namespace ui {
@@ -55,6 +56,7 @@ private:
     std::string last_query_;
     bool is_predicting_;
     guint debounce_timer_id_;
+    std::uint64_t latest_request_id_;
     
     // UI setup
     void setup_ui();
@@ -76,7 +78,12 @@ private:
     
     // Prediction handling
     void process_input_buffer();
-    void on_prediction_result(std::optional<domain::Suggestion> suggestion);
+    void on_prediction_result(std::uint64_t request_id,
+                              const std::string& query,
+                              std::optional<domain::Suggestion> suggestion);
+    void request_prediction(const std::string& query,
+                            const std::string& full_context,
+                            const std::string& status_text = "Consultando IA...");
     
     // Static callbacks for GTK
     static void on_config_clicked_static(GtkButton* button, gpointer user_data);

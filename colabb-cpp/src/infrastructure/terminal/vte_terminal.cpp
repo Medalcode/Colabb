@@ -3,8 +3,11 @@
 #include <sstream>
 #include <regex>
 #include <cstdlib>
+#include <cstdint>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <filesystem>
 
 namespace colabb {
 namespace infrastructure {
@@ -38,11 +41,13 @@ TerminalWidget::~TerminalWidget() {
 void TerminalWidget::spawn_shell(const std::string& shell_path) {
     const char* home = getenv("HOME");
     if (!home) home = "/home";
-    
-    // Set up session log
-    session_log_path_ = std::string(home) + "/.colabb_session.log";
-    
-    // Remove old log
+
+    // Set up session log per terminal tab to avoid cross-tab context contamination.
+    std::filesystem::path log_dir = std::filesystem::path(home) / ".cache" / "colabb";
+    std::error_code ec;
+    std::filesystem::create_directories(log_dir, ec);
+    session_log_path_ = (log_dir / ("session_" + std::to_string(getpid()) + "_" +
+                                    std::to_string(reinterpret_cast<uintptr_t>(this)) + ".log")).string();
     unlink(session_log_path_.c_str());
     
     // Wrap shell in 'script' command for logging
@@ -144,7 +149,7 @@ void TerminalWidget::set_key_press_callback(KeyPressCallback callback) {
 gboolean TerminalWidget::on_key_press_static(GtkWidget* widget, GdkEventKey* event, gpointer user_data) {
     auto* self = static_cast<TerminalWidget*>(user_data);
     if (self && self->key_press_callback_) {
-        self->key_press_callback_(event);
+        return self->key_press_callback_(event) ? TRUE : FALSE;
     }
     return FALSE; // Propagate event
 }

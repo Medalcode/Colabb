@@ -25,7 +25,8 @@ std::optional<Suggestion> OpenAIProvider::predict(const std::string& prompt,
             {{"role", "system"}, {"content", "You are a Linux terminal expert. Return ONLY the suggested bash command, without explanations or markdown formatting."}},
             {{"role", "user"}, {"content", full_prompt}}
         }},
-        {"max_tokens", 100}
+        {"temperature", 0.1},
+        {"max_tokens", 80}
     };
     
     std::map<std::string, std::string> headers = {
@@ -76,8 +77,24 @@ std::string OpenAIProvider::sanitize_response(const std::string& raw) {
     result = std::regex_replace(result, std::regex("`"), "");
     
     // Trim whitespace
-    result.erase(0, result.find_first_not_of(" \t\n\r"));
-    result.erase(result.find_last_not_of(" \t\n\r") + 1);
+    const auto first = result.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos) {
+        return "";
+    }
+    result.erase(0, first);
+    const auto last = result.find_last_not_of(" \t\n\r");
+    if (last != std::string::npos) {
+        result.erase(last + 1);
+    }
+
+    // Keep only first non-empty line to prevent multi-command outputs.
+    auto newline_pos = result.find('\n');
+    if (newline_pos != std::string::npos) {
+        result = result.substr(0, newline_pos);
+    }
+    if (result.rfind("$ ", 0) == 0) {
+        result = result.substr(2);
+    }
     
     return result;
 }

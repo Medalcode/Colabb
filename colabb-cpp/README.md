@@ -134,6 +134,12 @@ colabb-cpp/
 
 Si encuentras bugs o tienes ideas para nuevas features, ¡abre un issue o PR!
 
+## 📈 Operación y escalabilidad
+
+Se añadió un plan de operación y escalabilidad en:
+
+- `docs/scalability_operation_plan.md`
+
 ## 📄 Licencia
 
 MIT

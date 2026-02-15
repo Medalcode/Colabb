@@ -62,6 +62,7 @@ std::optional<domain::Suggestion> SuggestionCache::get(const std::string& query)
 
 void SuggestionCache::clear() {
     cache_.clear();
+    lru_list_.clear();
 }
 
 void SuggestionCache::evict_oldest() {

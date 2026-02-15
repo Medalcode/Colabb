@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <chrono>
+#include <thread>
 #include "domain/ai/ai_provider.hpp"
 #include "application/prediction_service.hpp"
 
@@ -33,9 +34,4 @@ TEST(PredictionServiceQueueTest, RejectsWhenMaxQueueZero) {
     // Give a tiny moment for the callback to run
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     EXPECT_TRUE(called.load());
-}
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

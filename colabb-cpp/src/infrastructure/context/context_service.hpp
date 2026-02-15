@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
+#include <chrono>
+#include <mutex>
 
 namespace colabb {
 namespace infrastructure {
@@ -28,6 +31,15 @@ public:
     std::string get_context_prompt(const std::string& current_path);
 
 private:
+    struct CacheEntry {
+        ProjectInfo info;
+        std::chrono::steady_clock::time_point timestamp;
+    };
+
+    mutable std::mutex cache_mutex_;
+    std::unordered_map<std::string, CacheEntry> cache_;
+    std::chrono::seconds cache_ttl_{5};
+
     // Helpers
     std::string get_project_name(const std::string& path);
     void detect_languages_and_tools(const std::string& path, ProjectInfo& info);

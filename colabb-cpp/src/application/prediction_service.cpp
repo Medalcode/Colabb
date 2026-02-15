@@ -32,7 +32,7 @@ void PredictionService::predict_async(const std::string& query,
     bool rejected = false;
     {
         std::lock_guard<std::mutex> lock(queue_mutex_);
-        if (max_queue_size_ > 0 && request_queue_.size() >= max_queue_size_) {
+        if (request_queue_.size() >= max_queue_size_) {
             rejected = true;
         } else {
             request_queue_.push({query, context, callback});

@@ -12,6 +12,18 @@ namespace infrastructure {
 ContextService::ContextService() {}
 
 ContextService::ProjectInfo ContextService::detect_context(const std::string& current_path) {
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        auto cached = cache_.find(current_path);
+        if (cached != cache_.end()) {
+            auto age = std::chrono::steady_clock::now() - cached->second.timestamp;
+            if (age <= cache_ttl_) {
+                return cached->second.info;
+            }
+            cache_.erase(cached);
+        }
+    }
+
     ProjectInfo info;
     info.is_git_repo = false;
     
@@ -26,6 +38,11 @@ ContextService::ProjectInfo ContextService::detect_context(const std::string& cu
 
     } catch (const std::exception& e) {
         std::cerr << "Error detecting context: " << e.what() << std::endl;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        cache_[current_path] = CacheEntry{info, std::chrono::steady_clock::now()};
     }
 
     return info;

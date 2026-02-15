@@ -6,6 +6,15 @@
 namespace colabb {
 namespace ui {
 
+namespace {
+struct PredictionResultPayload {
+    MainWindow* window;
+    std::uint64_t request_id;
+    std::string query;
+    std::optional<domain::Suggestion> suggestion;
+};
+}
+
 MainWindow::MainWindow()
     : window_(nullptr)
     , header_bar_(nullptr)
@@ -17,7 +26,8 @@ MainWindow::MainWindow()
     , apply_button_(nullptr)
     , icon_image_(nullptr)
     , is_predicting_(false)
-    , debounce_timer_id_(0) {
+    , debounce_timer_id_(0)
+    , latest_request_id_(0) {
     
     config_manager_ = std::make_unique<infrastructure::ConfigManager>();
     profile_manager_ = std::make_unique<infrastructure::ProfileManager>();
@@ -405,7 +415,7 @@ bool MainWindow::on_key_press(GdkEventKey* event) {
 
 void MainWindow::process_input_buffer() {
     // Check for totem '?'
-    size_t totem_pos = input_buffer_.find('?');
+    size_t totem_pos = input_buffer_.find_last_of('?');
     if (totem_pos == std::string::npos) {
         hide_suggestion_overlay();
         return;
@@ -415,8 +425,15 @@ void MainWindow::process_input_buffer() {
     std::string query = input_buffer_.substr(totem_pos + 1);
     
     // Trim whitespace
-    query.erase(0, query.find_first_not_of(" \t"));
-    query.erase(query.find_last_not_of(" \t") + 1);
+    const auto first_non_space = query.find_first_not_of(" \t");
+    if (first_non_space == std::string::npos) {
+        return;
+    }
+    query.erase(0, first_non_space);
+    const auto last_non_space = query.find_last_not_of(" \t");
+    if (last_non_space != std::string::npos) {
+        query.erase(last_non_space + 1);
+    }
     
     if (query.empty() || query == last_query_) {
         return;
@@ -434,39 +451,54 @@ void MainWindow::process_input_buffer() {
         return;
     }
     
-    if (!is_predicting_) {
-        is_predicting_ = true;
-        show_suggestion_overlay();
-        update_suggestion_ui("Consultando IA...", false);
-        gtk_spinner_start(spinner_);
-        gtk_widget_show(GTK_WIDGET(spinner_));
-        gtk_widget_hide(GTK_WIDGET(icon_image_));
-        
-        // Get context from terminal
-        auto* terminal = get_current_terminal();
-        if (!terminal) return;
-        
-        std::string term_context = terminal->get_context(20);
-        std::string cwd = terminal->get_current_directory();
-        std::string project_context = context_service_->get_context_prompt(cwd);
-        
-        std::string full_context = project_context + "\n\nRecent Terminal Output:\n" + term_context;
-        
-        // Request prediction
-        prediction_service_->predict_async(query, full_context,
-            [this](std::optional<domain::Suggestion> suggestion) {
-                // This callback runs in worker thread, use g_idle_add for UI update
-                g_idle_add([](gpointer user_data) -> gboolean {
-                    auto* pair = static_cast<std::pair<MainWindow*, std::optional<domain::Suggestion>>*>(user_data);
-                    pair->first->on_prediction_result(pair->second);
-                    delete pair;
-                    return G_SOURCE_REMOVE;
-                }, new std::pair<MainWindow*, std::optional<domain::Suggestion>>(this, suggestion));
-            });
+    // Get context from terminal
+    auto* terminal = get_current_terminal();
+    if (!terminal) {
+        is_predicting_ = false;
+        hide_suggestion_overlay();
+        return;
     }
+
+    std::string term_context = terminal->get_context(20);
+    std::string cwd = terminal->get_current_directory();
+    std::string project_context = context_service_->get_context_prompt(cwd);
+
+    std::string full_context = project_context + "\n\nRecent Terminal Output:\n" + term_context;
+    request_prediction(query, full_context);
 }
 
-void MainWindow::on_prediction_result(std::optional<domain::Suggestion> suggestion) {
+void MainWindow::request_prediction(const std::string& query,
+                                    const std::string& full_context,
+                                    const std::string& status_text) {
+    prediction_service_->cancel_pending();
+    is_predicting_ = true;
+    show_suggestion_overlay();
+    update_suggestion_ui(status_text, false);
+    gtk_spinner_start(spinner_);
+    gtk_widget_show(GTK_WIDGET(spinner_));
+    gtk_widget_hide(GTK_WIDGET(icon_image_));
+
+    const std::uint64_t request_id = ++latest_request_id_;
+    prediction_service_->predict_async(query, full_context,
+        [this, request_id, query](std::optional<domain::Suggestion> suggestion) {
+            // This callback runs in worker thread, use g_idle_add for UI update
+            g_idle_add([](gpointer user_data) -> gboolean {
+                auto* payload = static_cast<PredictionResultPayload*>(user_data);
+                payload->window->on_prediction_result(
+                    payload->request_id, payload->query, payload->suggestion);
+                delete payload;
+                return G_SOURCE_REMOVE;
+            }, new PredictionResultPayload{this, request_id, query, suggestion});
+        });
+}
+
+void MainWindow::on_prediction_result(std::uint64_t request_id,
+                                      const std::string& query,
+                                      std::optional<domain::Suggestion> suggestion) {
+    if (request_id != latest_request_id_) {
+        return;
+    }
+
     is_predicting_ = false;
     gtk_spinner_stop(spinner_);
     gtk_widget_hide(GTK_WIDGET(spinner_));
@@ -476,8 +508,8 @@ void MainWindow::on_prediction_result(std::optional<domain::Suggestion> suggesti
         current_suggestion_ = suggestion;
         
         // Cache the suggestion
-        if (!last_query_.empty()) {
-            suggestion_cache_->put(last_query_, *suggestion);
+        if (!query.empty()) {
+            suggestion_cache_->put(query, *suggestion);
         }
         
         show_suggestion_overlay();
@@ -512,6 +544,9 @@ void MainWindow::on_apply_suggestion() {
     input_buffer_.clear();
     last_query_.clear();
     current_suggestion_ = std::nullopt;
+    ++latest_request_id_;
+    is_predicting_ = false;
+    prediction_service_->cancel_pending();
     hide_suggestion_overlay();
     
     // Focus terminal
@@ -525,12 +560,17 @@ void MainWindow::on_config_clicked() {
     // Recreate AI provider with new config
     auto ai_provider = create_ai_provider();
     prediction_service_ = std::make_unique<application::PredictionService>(std::move(ai_provider));
+    ++latest_request_id_;
+    is_predicting_ = false;
 }
 
 void MainWindow::on_escape_pressed() {
     input_buffer_.clear();
     last_query_.clear();
     current_suggestion_ = std::nullopt;
+    ++latest_request_id_;
+    is_predicting_ = false;
+    prediction_service_->cancel_pending();
     hide_suggestion_overlay();
 }
 
@@ -728,25 +768,7 @@ void MainWindow::on_explain_error() {
     std::string prompt = project_context + 
         "\n\nAnalyze the following terminal output. Explain any errors found and suggest a fix:\n\n" + output;
         
-    // Reuse prediction UI
-    if (!is_predicting_) {
-        is_predicting_ = true;
-        show_suggestion_overlay();
-        update_suggestion_ui("Analizando error...", false);
-        gtk_spinner_start(spinner_);
-        gtk_widget_show(GTK_WIDGET(spinner_));
-        gtk_widget_hide(GTK_WIDGET(icon_image_));
-        
-        prediction_service_->predict_async("Explain Error", prompt,
-            [this](std::optional<domain::Suggestion> suggestion) {
-                g_idle_add([](gpointer user_data) -> gboolean {
-                    auto* pair = static_cast<std::pair<MainWindow*, std::optional<domain::Suggestion>>*>(user_data);
-                    pair->first->on_prediction_result(pair->second);
-                    delete pair;
-                    return G_SOURCE_REMOVE;
-                }, new std::pair<MainWindow*, std::optional<domain::Suggestion>>(this, suggestion));
-            });
-    }
+    request_prediction("Explain Error", prompt, "Analizando error...");
 }
 
 void MainWindow::on_tab_switched(GtkWidget* page, guint page_num) {

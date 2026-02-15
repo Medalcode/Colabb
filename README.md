@@ -88,3 +88,7 @@ MIT
 - Se añadieron tests unitarios (incluyendo `prediction_service_queue_test.cpp`) y la suite de tests local pasó completamente.
 
 Ver `Bitacora.md` en la raíz para más detalles y próximos pasos.
+
+## Última actualización
+
+Actualizado el 15 de febrero de 2026: se refinó la descripción del proyecto y se añadieron referencias a la carpeta `colabb-cpp/docs` para facilitar la creación de proveedores y plugins.
