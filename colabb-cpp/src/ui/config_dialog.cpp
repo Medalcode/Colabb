@@ -5,11 +5,11 @@
 namespace colabb {
 namespace ui {
 
-ConfigDialog::ConfigDialog(GtkWindow* parent, infrastructure::ConfigManager* config_manager)
+ConfigDialog::ConfigDialog(GtkWindow* parent, infrastructure::SettingsManager* manager)
     : dialog_(nullptr)
     , provider_combo_(nullptr)
     , api_key_entry_(nullptr)
-    , config_manager_(config_manager) {
+    , manager_(manager) {
     
     setup_ui(parent);
 }
@@ -73,7 +73,7 @@ void ConfigDialog::setup_ui(GtkWindow* parent) {
 }
 
 void ConfigDialog::load_current_config() {
-    std::string provider = config_manager_->get_provider();
+    std::string provider = manager_->get_ai_provider();
     
     if (provider == "groq") {
         gtk_combo_box_set_active(GTK_COMBO_BOX(provider_combo_), 0);
@@ -98,20 +98,28 @@ void ConfigDialog::on_save() {
     const char* api_key_text = gtk_entry_get_text(api_key_entry_);
     
     // Save provider
-    config_manager_->set_provider(provider);
+    manager_->set_ai_provider(provider);
     
     // Save API key if provided
     if (api_key_text && strlen(api_key_text) > 0) {
         std::string api_key(api_key_text);
-        config_manager_->set_api_key(provider, api_key);
+        manager_->set_api_key(provider, api_key);
         
-        // Validate connection
-        std::unique_ptr<domain::IAIProvider> ai_provider;
+        // Validate connection with Unified Provider
+        domain::GenericHttpAiProvider::Config config;
+        config.api_key = api_key;
+        
         if (provider == "openai") {
-            ai_provider = std::make_unique<domain::OpenAIProvider>(api_key);
+            config.endpoint_url = "https://api.openai.com/v1/chat/completions";
+            config.model = "gpt-3.5-turbo";
+            config.system_prompt = "You are a Linux terminal expert. Return ONLY the suggested bash command.";
         } else if (provider == "groq") {
-            ai_provider = std::make_unique<domain::GroqProvider>(api_key);
+            config.endpoint_url = "https://api.groq.com/openai/v1/chat/completions";
+            config.model = "llama-3.1-8b-instant";
+            config.system_prompt = "Eres un experto en terminal Linux. Devuelve SOLO el comando bash sugerido.";
         }
+        
+        auto ai_provider = std::make_unique<domain::GenericHttpAiProvider>(config);
         
         if (ai_provider) {
             bool valid = ai_provider->validate_connection();

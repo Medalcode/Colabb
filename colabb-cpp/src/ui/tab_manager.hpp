@@ -2,7 +2,7 @@
 #define COLABB_TAB_MANAGER_HPP
 
 #include "infrastructure/terminal/vte_terminal.hpp"
-#include "infrastructure/config/profile_manager.hpp"
+#include "infrastructure/config/settings_manager.hpp"
 #include <gtk/gtk.h>
 #include <memory>
 #include <vector>
@@ -55,13 +55,13 @@ public:
     void set_tab_closed_callback(TabClosedCallback callback);
 
     // Dependencies
-    void set_profile_manager(infrastructure::ProfileManager* manager);
+    void set_settings_manager(infrastructure::SettingsManager* manager);
     
 private:
     GtkNotebook* notebook_;
     std::vector<std::unique_ptr<TabInfo>> tabs_;
     int next_tab_id_;
-    infrastructure::ProfileManager* profile_manager_ = nullptr;
+    infrastructure::SettingsManager* settings_manager_ = nullptr;
     
     TabCreatedCallback tab_created_callback_;
     TabClosedCallback tab_closed_callback_;

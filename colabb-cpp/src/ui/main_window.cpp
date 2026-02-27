@@ -29,8 +29,7 @@ MainWindow::MainWindow()
     , debounce_timer_id_(0)
     , latest_request_id_(0) {
     
-    config_manager_ = std::make_unique<infrastructure::ConfigManager>();
-    profile_manager_ = std::make_unique<infrastructure::ProfileManager>();
+    settings_manager_ = std::make_unique<infrastructure::SettingsManager>();
     context_service_ = std::make_unique<infrastructure::ContextService>();
     
     // Create AI provider based on config
@@ -88,7 +87,7 @@ void MainWindow::setup_ui() {
     
     // Create TabManager
     tab_manager_ = std::make_unique<TabManager>(notebook_);
-    tab_manager_->set_profile_manager(profile_manager_.get());
+    tab_manager_->set_settings_manager(settings_manager_.get());
     tab_manager_->set_tab_created_callback([this](TabManager::TabInfo* tab) {
         this->on_tab_created(tab);
     });
@@ -554,7 +553,7 @@ void MainWindow::on_apply_suggestion() {
 }
 
 void MainWindow::on_config_clicked() {
-    ConfigDialog dialog(GTK_WINDOW(window_), config_manager_.get());
+    ConfigDialog dialog(GTK_WINDOW(window_), settings_manager_.get());
     dialog.run();
     
     // Recreate AI provider with new config
@@ -580,15 +579,24 @@ void MainWindow::update_suggestion_ui(const std::string& text, bool enable_butto
 }
 
 std::unique_ptr<domain::IAIProvider> MainWindow::create_ai_provider() {
-    std::string provider = config_manager_->get_provider();
-    std::string api_key = config_manager_->get_api_key(provider);
+    std::string provider = settings_manager_->get_ai_provider();
+    std::string api_key = settings_manager_->get_api_key(provider);
+    
+    domain::GenericHttpAiProvider::Config config;
+    config.api_key = api_key;
     
     if (provider == "openai") {
-        return std::make_unique<domain::OpenAIProvider>(api_key);
+        config.endpoint_url = "https://api.openai.com/v1/chat/completions";
+        config.model = "gpt-3.5-turbo";
+        config.system_prompt = "You are a Linux terminal expert. Return ONLY the suggested bash command, without explanations or markdown formatting.";
     } else {
         // Default to Groq
-        return std::make_unique<domain::GroqProvider>(api_key);
+        config.endpoint_url = "https://api.groq.com/openai/v1/chat/completions";
+        config.model = "llama-3.1-8b-instant";
+        config.system_prompt = "Eres un experto en terminal Linux. Devuelve SOLO el comando bash sugerido, sin explicaciones ni formato markdown.";
     }
+    
+    return std::make_unique<domain::GenericHttpAiProvider>(config);
 }
 
 // Static callbacks
@@ -744,7 +752,7 @@ void MainWindow::on_profiles_clicked_static(GtkMenuItem* item, gpointer user_dat
 }
 
 void MainWindow::on_profiles_clicked() {
-    ProfileDialog dialog(GTK_WINDOW(window_), profile_manager_.get());
+    ProfileDialog dialog(GTK_WINDOW(window_), settings_manager_.get());
     dialog.run();
     
     // Apply changes (if any) to open tabs

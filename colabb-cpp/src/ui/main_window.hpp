@@ -2,8 +2,7 @@
 #define COLABB_MAIN_WINDOW_HPP
 
 #include "infrastructure/terminal/vte_terminal.hpp"
-#include "infrastructure/config/config_manager.hpp"
-#include "infrastructure/config/profile_manager.hpp"
+#include "infrastructure/config/settings_manager.hpp"
 #include "infrastructure/context/context_service.hpp"
 #include "infrastructure/i18n/translation_manager.hpp"
 #include "ui/profile_dialog.hpp"
@@ -17,7 +16,6 @@
 #include <string>
 #include <optional>
 #include <cstdint>
-
 namespace colabb {
 namespace ui {
 
@@ -43,8 +41,7 @@ private:
     
     // Components
     std::unique_ptr<TabManager> tab_manager_;
-    std::unique_ptr<infrastructure::ConfigManager> config_manager_;
-    std::unique_ptr<infrastructure::ProfileManager> profile_manager_;
+    std::unique_ptr<infrastructure::SettingsManager> settings_manager_;
     std::unique_ptr<infrastructure::ContextService> context_service_;
     std::unique_ptr<application::PredictionService> prediction_service_;
     std::unique_ptr<application::SuggestionCache> suggestion_cache_;

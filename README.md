@@ -24,7 +24,7 @@ sudo apt install \
     libgtk-3-dev \
     libvte-2.91-dev \
     libcurl4-openssl-dev \
-    libjsoncpp-dev \
+    libnlohmann-json-dev \
     libsecret-1-dev
 ```
 
@@ -32,11 +32,6 @@ sudo apt install \
 
 ```bash
 cd colabb-cpp
-# Opcional: Generar paquete .deb
-./scripts/package_deb.sh
-sudo apt install ./colabb_1.0.0_amd64.deb
-
-# O compilar manualmente
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
@@ -46,49 +41,41 @@ make -j$(nproc)
 ## ▶️ Uso
 
 1. **Configuración Inicial**:
-   - Ve a `Menú > Preferencias IA`
-   - Selecciona tu proveedor (Groq/OpenAI) e ingresa tu API Key.
+   - Ve a `Menú > Preferencias`
+   - Configura tu proveedor de IA (soporta cualquier API compatible con OpenAI/Groq/Local) e ingresa tu API Key. Los secretos se guardan de forma segura en el Ring del Sistema.
 
 2. **Asistencia IA Inteligente**:
    - **Preguntar**: Escribe `?` seguido de tu consulta (ej: `? deszipar archivo`).
    - **Explicar Error**: Si un comando falla, presiona `Ctrl + Alt + E` para que la IA analice la salida.
-   - **Autocompletado**: Si ves una sugerencia, presiona `Tab` o `Ctrl + Space` para insertarla.
-
-3. **Gestión de Pestañas**:
-   - `Ctrl + Shift + T`: Nueva pestaña
-   - `Ctrl + Shift + W`: Cerrar pestaña
-   - `Ctrl + PageUp / PageDown`: Navegar entre pestañas
-
-4. **Perfiles**:
-   - Ve a `Menú > Perfiles` para personalizar fuentes, colores y comandos de inicio.
-   - Los cambios se aplican inmediatamente a todas las pestañas abiertas.
+   - **Autocompletado**: Presiona `Tab` o `Ctrl + Space` para insertar sugerencias.
 
 ## 🤝 Contribución
 
 Si encuentras bugs o tienes ideas, ¡abre un issue o PR!
 
-## 📚 Docs y extensibilidad (nuevas adiciones)
+## 📚 Arquitectura Lean y Extensibilidad
 
-Se han añadido documentos y ejemplos para facilitar la creación de proveedores (skills) y la integración de plugins dinámicos:
+El proyecto ha sido refactorizado bajo principios de **Alta Cohesión y Bajo Acoplamiento**:
 
-- `colabb-cpp/docs/agent.md` — descripción del modelo de agentes, threading y puntos de extensión.
-- `colabb-cpp/docs/skills.md` — guía para crear `IAIProvider` y ejemplo de ABI para plugins (`create_provider`/`destroy_provider`).
-- `colabb-cpp/docs/examples/` — ejemplo `skill_skeleton.cpp`, `skill_manifest.json` y un `CMake` snippet para compilar providers como `SHARED`.
+- **Generalist Agent**: Un único motor de predicción lógica.
+- **Super-Skills**: Proveedores configurables (OpenAI/Groq/Local) a través de `GenericHttpAiProvider`.
+- **Unified Persistence**: `SettingsManager` centraliza perfiles y configuración con almacenamiento seguro.
+- **Plugin System (ABI 1.0)**: Carga dinámica de proveedores como librerías compartidas (`.so` / `.dll`).
 
-Además se añadió una implementación inicial de `PluginLoader` en `src/infrastructure/plugins/` y se actualizó `CMakeLists.txt` para enlazar con `dl` en sistemas UNIX. Esto permite cargar proveedores implementados como shared libraries (ver `skills.md` para el contrato ABI y precauciones de seguridad).
+Documentación técnica:
+- `agents.md` — Roles y comportamiento del agente generalista.
+- `skills.md` — Contrato de habilidades y guía de desarrollo de plugins.
+- `colabb-cpp/docs/examples/` — Plantillas de código y CMake para nuevos desarrollos.
 
 ## 📄 Licencia
 
 MIT
 
-## Cambios recientes (resumen de la sesión de 2026-01-27)
+## 🗒️ Bitácora de Refactorización (Febrero 2026)
 
-- `SuggestionCache` reimplementado como LRU para evitar O(n) en expulsión y mejorar rendimiento.
-- `PredictionService` ahora acepta `max_queue_size` y rechaza solicitudes cuando la cola está llena (callback con `nullopt`).
-- Se añadieron tests unitarios (incluyendo `prediction_service_queue_test.cpp`) y la suite de tests local pasó completamente.
+- **Consolidación de IA**: Eliminación de `GroqProvider` y `OpenAIProvider` en favor de `GenericHttpAiProvider`. Reducción del 80% de lógica duplicada.
+- **Unificación de Settings**: Fusión de `ConfigManager` y `ProfileManager` en un único `SettingsManager`.
+- **Limpieza de Código**: Eliminación de archivos "extended", huérfanos y versiones duplicadas.
+- **Estándar ABI 1.0**: Unificación de la interfaz de plugins multiplataforma.
 
-Ver `Bitacora.md` en la raíz para más detalles y próximos pasos.
-
-## Última actualización
-
-Actualizado el 15 de febrero de 2026: se refinó la descripción del proyecto y se añadieron referencias a la carpeta `colabb-cpp/docs` para facilitar la creación de proveedores y plugins.
+Para un historial detallado, consulta `Bitacora.md`.

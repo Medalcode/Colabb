@@ -1,7 +1,7 @@
 #ifndef COLABB_PROFILE_DIALOG_HPP
 #define COLABB_PROFILE_DIALOG_HPP
 
-#include "infrastructure/config/profile_manager.hpp"
+#include "infrastructure/config/settings_manager.hpp"
 #include <gtk/gtk.h>
 #include <string>
 #include <vector>
@@ -11,7 +11,7 @@ namespace ui {
 
 class ProfileDialog {
 public:
-    ProfileDialog(GtkWindow* parent, infrastructure::ProfileManager* manager);
+    ProfileDialog(GtkWindow* parent, infrastructure::SettingsManager* manager);
     ~ProfileDialog();
 
     void run();
@@ -19,7 +19,7 @@ public:
 private:
     GtkWidget* dialog_;
     GtkWindow* parent_window_;
-    infrastructure::ProfileManager* manager_;
+    infrastructure::SettingsManager* manager_;
     
     // UI Widgets
     GtkWidget* profile_list_box_;

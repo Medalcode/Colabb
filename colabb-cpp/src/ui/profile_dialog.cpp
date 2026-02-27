@@ -4,7 +4,7 @@
 namespace colabb {
 namespace ui {
 
-ProfileDialog::ProfileDialog(GtkWindow* parent, infrastructure::ProfileManager* manager)
+ProfileDialog::ProfileDialog(GtkWindow* parent, infrastructure::SettingsManager* manager)
     : parent_window_(parent)
     , manager_(manager)
     , current_profile_name_("")

@@ -1,7 +1,7 @@
 #ifndef COLABB_CONFIG_DIALOG_HPP
 #define COLABB_CONFIG_DIALOG_HPP
 
-#include "infrastructure/config/config_manager.hpp"
+#include "infrastructure/config/settings_manager.hpp"
 #include <gtk/gtk.h>
 
 namespace colabb {
@@ -9,7 +9,7 @@ namespace ui {
 
 class ConfigDialog {
 public:
-    ConfigDialog(GtkWindow* parent, infrastructure::ConfigManager* config_manager);
+    ConfigDialog(GtkWindow* parent, infrastructure::SettingsManager* manager);
     ~ConfigDialog();
     
     void run();
@@ -18,7 +18,7 @@ private:
     GtkWidget* dialog_;
     GtkComboBoxText* provider_combo_;
     GtkEntry* api_key_entry_;
-    infrastructure::ConfigManager* config_manager_;
+    infrastructure::SettingsManager* manager_;
     
     void setup_ui(GtkWindow* parent);
     void load_current_config();

@@ -10,6 +10,9 @@
 namespace colabb {
 namespace domain {
 
+/**
+ * @brief Interfaz base para proveedores de IA.
+ */
 class IAIProvider {
 public:
     virtual ~IAIProvider() = default;
@@ -19,35 +22,30 @@ public:
     virtual bool validate_connection() = 0;
 };
 
-class GroqProvider : public IAIProvider {
+/**
+ * @brief Super-Skill: Proveedor genérico para cualquier servicio compatible con HTTP/JSON (tipo OpenAI/Groq).
+ */
+class GenericHttpAiProvider : public IAIProvider {
 public:
-    explicit GroqProvider(const std::string& api_key);
-    
-    std::optional<Suggestion> predict(const std::string& prompt,
-                                      const std::string& context = "") override;
-    bool validate_connection() override;
-    
-private:
-    std::string api_key_;
-    std::unique_ptr<infrastructure::HttpClient> http_client_;
-    
-    std::string sanitize_response(const std::string& raw);
-    std::string build_prompt(const std::string& query, const std::string& context);
-};
+    struct Config {
+        std::string api_key;
+        std::string endpoint_url;
+        std::string model;
+        std::string system_prompt;
+    };
 
-class OpenAIProvider : public IAIProvider {
-public:
-    explicit OpenAIProvider(const std::string& api_key);
+    explicit GenericHttpAiProvider(Config config);
     
     std::optional<Suggestion> predict(const std::string& prompt,
                                       const std::string& context = "") override;
     bool validate_connection() override;
     
 private:
-    std::string api_key_;
+    Config config_;
     std::unique_ptr<infrastructure::HttpClient> http_client_;
     
     std::string sanitize_response(const std::string& raw);
+    std::string build_full_prompt(const std::string& query, const std::string& context);
 };
 
 } // namespace domain

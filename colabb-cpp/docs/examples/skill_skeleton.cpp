@@ -1,42 +1,47 @@
-// Ejemplo mínimo de Skill como shared lib (DRAFT)
-// Ruta de ejemplo de includes: ajustar `-I` en CMake según proyecto.
-#include <optional>
+// Skill Skeleton — Ejemplo de Proveedor para Colabb (ABI 1.0)
+// Este archivo sirve de base para crear plugins dinámicos.
+
 #include <string>
-#include <memory>
+#include <optional>
 #include <ctime>
+#include <memory>
 
-#include "../../src/domain/ai/ai_provider.hpp"
-#include "../../src/domain/models/suggestion.hpp"
+#include "domain/ai/ai_provider.hpp"
+#include "domain/models/suggestion.hpp"
 
-using namespace domain;
+using namespace colabb::domain;
 
-class SkeletonProvider : public IAIProvider {
+class ExampleSkeletonProvider : public IAIProvider {
 public:
-    SkeletonProvider(const std::string& config_json) : config_(config_json) {}
+    ExampleSkeletonProvider(const std::string& config_json) : config_(config_json) {}
+    ~ExampleSkeletonProvider() override = default;
 
-    std::optional<Suggestion> predict(const std::string& prompt, const std::string& context) override {
+    std::optional<Suggestion> predict(const std::string& prompt, 
+                                       const std::string& context = "") override {
         Suggestion s;
-        s.command = "echo \"SUGGESTION: " + prompt + "\"";
-        s.explanation = "Respuesta generada por SkeletonProvider";
-        s.confidence = 0.5;
+        s.command = "echo \"Respuesta para: " + prompt + "\"";
+        s.explanation = "Generado por ExampleSkeletonProvider (ABI 1.0)";
+        s.confidence = 0.8f;
         s.timestamp = std::time(nullptr);
-        return std::optional<Suggestion>(s);
+        return s;
     }
 
     bool validate_connection() override {
-        return true;
+        return true; 
     }
 
 private:
     std::string config_;
 };
 
+// --- Símbolos ABI C ---
+
+extern "C" const char* plugin_api_version() {
+    return "1.0";
+}
+
 extern "C" IAIProvider* create_provider(const char* config_json) {
-    try {
-        return new SkeletonProvider(config_json ? config_json : "{}");
-    } catch(...) {
-        return nullptr;
-    }
+    return new ExampleSkeletonProvider(config_json ? config_json : "{}");
 }
 
 extern "C" void destroy_provider(IAIProvider* p) {

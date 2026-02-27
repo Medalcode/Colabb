@@ -1,14 +1,21 @@
---- CMake snippet (DRAFT) --------------------------------------------
-# Ejemplo: compilar el provider como shared library
+# CMake Snippet — Cómo compilar un Plugin para Colabb (Multiplataforma)
 
-add_library(skeleton_provider SHARED docs/examples/skill_skeleton.cpp)
-target_include_directories(skeleton_provider PRIVATE
-  ${CMAKE_SOURCE_DIR}/src
+add_library(skeleton_provider SHARED skill_skeleton.cpp)
+
+# Asegurar que los headers del dominio sean visibles
+target_include_directories(skeleton_provider PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
 )
-# Si tu provider necesita linkear con librerías del proyecto, añadirlas:
-# target_link_libraries(skeleton_provider PRIVATE colabb_core_lib)
 
-# Para instalar la shared lib en un path reconocible, puede usarse:
-# install(TARGETS skeleton_provider LIBRARY DESTINATION lib/colabb/plugins)
+# Ajuste automático del sufijo según el sistema operativo
+if (WIN32)
+    set_target_properties(skeleton_provider PROPERTIES SUFFIX ".dll")
+elseif(APPLE)
+    set_target_properties(skeleton_provider PROPERTIES SUFFIX ".dylib")
+else()
+    set_target_properties(skeleton_provider PROPERTIES SUFFIX ".so")
+endif()
 
----------------------------------------------------------------------
+# Mensaje de ayuda post-compilación
+message(STATUS "Plugin simple configurado como: skeleton_provider")

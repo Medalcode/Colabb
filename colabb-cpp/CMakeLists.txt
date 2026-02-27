@@ -25,9 +25,8 @@ set(SOURCES
     src/main.cpp
     src/infrastructure/terminal/vte_terminal.cpp
     src/infrastructure/http/http_client.cpp
-    src/infrastructure/config/config_manager.cpp
-    src/domain/ai/groq_provider.cpp
-    src/domain/ai/openai_provider.cpp
+    src/infrastructure/config/settings_manager.cpp
+    src/domain/ai/generic_http_provider.cpp
     src/application/prediction_service.cpp
     src/application/suggestion_cache.cpp
     src/ui/main_window.cpp
@@ -35,7 +34,6 @@ set(SOURCES
     src/ui/profile_dialog.cpp
     src/ui/search_bar.cpp
     src/ui/tab_manager.cpp
-    src/infrastructure/config/profile_manager.cpp
     src/infrastructure/context/context_service.cpp
     src/infrastructure/i18n/translation_manager.cpp
     src/infrastructure/plugins/plugin_loader.cpp
@@ -70,7 +68,7 @@ endif()
 install(TARGETS colabb DESTINATION bin)
 
 # Build example plugin used by integration tests
-add_library(example_provider SHARED docs/examples/skill_skeleton_extended.cpp)
+add_library(example_provider SHARED docs/examples/skill_skeleton.cpp)
 target_include_directories(example_provider PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
