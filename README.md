@@ -1,3 +1,7 @@
+[![CI](https://github.com/Medalcode/Colabb/actions/workflows/ci.yml/badge.svg)](https://github.com/Medalcode/Colabb/actions/workflows/ci.yml)
+[![Build](https://github.com/Medalcode/Colabb/actions/workflows/build.yml/badge.svg)](https://github.com/Medalcode/Colabb/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
 # Colabb Terminal
 
 Una terminal moderna para Linux potenciada con Inteligencia Artificial, escrita en C++ para máximo rendimiento y escalabilidad.
